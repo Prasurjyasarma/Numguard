@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,30 +11,62 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import data from "../data.json";
+import api from "../api";
 
-interface Notification {
+interface VirtualNumber {
   id: number;
-  sender: string;
-  message: string;
-  timestamp: string;
+  unread_count: number;
+  numbers: string;
   category: string;
-  tag: string;
-  is_read: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const VirtualNumberDashboard: React.FC = () => {
   const router = useRouter();
+  const [virtualNumbers, setVirtualNumbers] = useState<VirtualNumber[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
+  useEffect(() => {
+    // Fetch virtual numbers from the API
+    const fetchVirtualNumbers = async () => {
+      try {
+        const response = await api.get("/virtual-numbers/");
+        setVirtualNumbers(response.data);
+      } catch (error) {
+        console.error("Error fetching virtual numbers:", error);
+        Alert.alert("Error", "Failed to load virtual numbers");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVirtualNumbers();
+  }, []);
+
+  // Get total count of virtual numbers
+  const totalCount = virtualNumbers.length;
+
+  // Count available numbers (assuming 2 is max)
+  const availableCount = totalCount >= 2 ? 0 : 2 - totalCount;
+
+  // Filter numbers by category
+  const getNumbersByCategory = (category: string) => {
+    return virtualNumbers.filter((num) => num.category === category);
+  };
+
+  const ecommerceNumbers = getNumbersByCategory("e-commerce");
+  const socialMediaNumbers = getNumbersByCategory("social-media");
+
+  // Get unread count by category
   const getUnreadCount = (category: string): number => {
-    return (data as Notification[]).filter(
-      (notification) =>
-        notification.category === category && !notification.is_read
-    ).length;
+    const numbers = virtualNumbers.filter((num) => num.category === category);
+    return numbers.reduce((total, num) => total + num.unread_count, 0);
   };
 
   const ecommerceUnreadCount = getUnreadCount("e-commerce");
-  const socialMediaUnreadCount = getUnreadCount("social media");
+  const socialMediaUnreadCount = getUnreadCount("social-media");
 
   const copyToClipboard = (number: string): void => {
     Clipboard.setString(number);
@@ -62,48 +94,62 @@ const VirtualNumberDashboard: React.FC = () => {
         <View style={styles.summaryCard}>
           <View style={styles.summaryBox}>
             <Text style={styles.summaryTitle}>Total virtual number</Text>
-            <Text style={styles.summaryCount}>3</Text>
-            <View style={styles.tagContainer}>
-              <Text style={styles.summaryTag}>e-commerce</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => copyToClipboard("9834710256")}
-              style={styles.copyableNumber}
-            >
-              <Text style={styles.summaryNumber}>9834710256</Text>
-              <Ionicons
-                name="copy-outline"
-                size={14}
-                color="#666"
-                style={styles.copyIcon}
-              />
-            </TouchableOpacity>
+            <Text style={styles.summaryCount}>{totalCount}</Text>
+            {ecommerceNumbers.length > 0 && (
+              <>
+                <View style={styles.tagContainer}>
+                  <Text style={styles.summaryTag}>e-commerce</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => copyToClipboard(ecommerceNumbers[0].numbers)}
+                  style={styles.copyableNumber}
+                >
+                  <Text style={styles.summaryNumber}>
+                    {ecommerceNumbers[0].numbers}
+                  </Text>
+                  <Ionicons
+                    name="copy-outline"
+                    size={14}
+                    color="#666"
+                    style={styles.copyIcon}
+                  />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
           <View style={styles.summaryBox}>
             <Text style={styles.summaryTitle}>Total available numbers</Text>
-            <Text style={styles.summaryCount}>1</Text>
-            <View style={styles.tagContainer}>
-              <Text style={styles.summaryTag}>social-media</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => copyToClipboard("7650923814")}
-              style={styles.copyableNumber}
-            >
-              <Text style={styles.summaryNumber}>7650923814</Text>
-              <Ionicons
-                name="copy-outline"
-                size={14}
-                color="#666"
-                style={styles.copyIcon}
-              />
-            </TouchableOpacity>
+            <Text style={styles.summaryCount}>{availableCount}</Text>
+            {socialMediaNumbers.length > 0 && (
+              <>
+                <View style={styles.tagContainer}>
+                  <Text style={styles.summaryTag}>social-media</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => copyToClipboard(socialMediaNumbers[0].numbers)}
+                  style={styles.copyableNumber}
+                >
+                  <Text style={styles.summaryNumber}>
+                    {socialMediaNumbers[0].numbers}
+                  </Text>
+                  <Ionicons
+                    name="copy-outline"
+                    size={14}
+                    color="#666"
+                    style={styles.copyIcon}
+                  />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
-        {/* Request Button */}
-        <TouchableOpacity style={styles.requestButton}>
-          <Text style={styles.requestText}>request</Text>
-        </TouchableOpacity>
+        {/* Request Button - Show only if available numbers > 0 */}
+        {availableCount > 0 && (
+          <TouchableOpacity style={styles.requestButton}>
+            <Text style={styles.requestText}>request</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Manage Divider */}
         <View style={styles.dividerContainer}>
@@ -112,45 +158,50 @@ const VirtualNumberDashboard: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* E-commerce Manage Card */}
-        <TouchableOpacity
-          onPress={() => router.push("/e-commerce")}
-          style={styles.manageCard}
-        >
-          <View>
-            {ecommerceUnreadCount > 0 && (
-              <View style={styles.notificationContainer}>
-                <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-                <Text style={styles.notificationText}>
-                  {ecommerceUnreadCount} new notifications
-                </Text>
-              </View>
-            )}
-            <Text style={styles.manageTitle}>e-commerce</Text>
-            <Text style={styles.manageNumber}>(9834710256)</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color="#000" />
-        </TouchableOpacity>
+        {/* Dynamic Manage Cards based on API data */}
+        {ecommerceNumbers.map((number) => (
+          <TouchableOpacity
+            key={number.id}
+            onPress={() => router.push("/e-commerce")}
+            style={styles.manageCard}
+          >
+            <View>
+              {number.unread_count > 0 && (
+                <View style={styles.notificationContainer}>
+                  <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                  <Text style={styles.notificationText}>
+                    {number.unread_count} new notifications
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.manageTitle}>{number.category}</Text>
+              <Text style={styles.manageNumber}>({number.numbers})</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#000" />
+          </TouchableOpacity>
+        ))}
 
-        {/* Social Media Manage Card */}
-        <TouchableOpacity
-          onPress={() => router.push("/social")}
-          style={styles.manageCard}
-        >
-          <View>
-            {socialMediaUnreadCount > 0 && (
-              <View style={styles.notificationContainer}>
-                <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-                <Text style={styles.notificationText}>
-                  {socialMediaUnreadCount} new notifications
-                </Text>
-              </View>
-            )}
-            <Text style={styles.manageTitle}>social-media</Text>
-            <Text style={styles.manageNumber}>(7650923814)</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color="#000" />
-        </TouchableOpacity>
+        {socialMediaNumbers.map((number) => (
+          <TouchableOpacity
+            key={number.id}
+            onPress={() => router.push("/social")}
+            style={styles.manageCard}
+          >
+            <View>
+              {number.unread_count > 0 && (
+                <View style={styles.notificationContainer}>
+                  <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                  <Text style={styles.notificationText}>
+                    {number.unread_count} new notifications
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.manageTitle}>{number.category}</Text>
+              <Text style={styles.manageNumber}>({number.numbers})</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#000" />
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );

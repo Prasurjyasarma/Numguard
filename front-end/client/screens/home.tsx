@@ -83,7 +83,7 @@ const HomeScreen: React.FC = () => {
           <TouchableOpacity style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.phoneNumber}>70XXX-XXX01</Text>
+          <Text style={styles.phoneNumber}>99XXX-XXX29</Text>
           <Text style={styles.prepaidLabel}>(prepaid)</Text>
           <TouchableOpacity
             style={styles.helpButton}

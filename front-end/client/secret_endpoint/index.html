@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Send Message to Virtual Number</title>
+    <style>
+      :root {
+        --primary: #4a6bff;
+        --primary-hover: #3a5bef;
+        --bg: #121212;
+        --card-bg: #1e1e1e;
+        --text: #e0e0e0;
+        --text-secondary: #a0a0a0;
+        --border: #333;
+        --input-bg: #2d2d2d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        padding: 1rem;
+        background-color: var(--bg);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: auto;
+        background: var(--card-bg);
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      h2 {
+        margin-top: 0;
+        color: var(--text);
+      }
+
+      label {
+        display: block;
+        margin-top: 1.2rem;
+        font-weight: bold;
+        color: var(--text);
+      }
+
+      select,
+      input,
+      textarea {
+        width: 100%;
+        padding: 12px;
+        margin-top: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+        background-color: var(--input-bg);
+        color: var(--text);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 120px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: bold;
+        background-color: var(--primary);
+        color: white;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+
+      button:hover {
+        background-color: var(--primary-hover);
+      }
+
+      .note {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 1rem;
+        line-height: 1.4;
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 0.5rem;
+        }
+
+        .container {
+          padding: 1.2rem;
+          border-radius: 10px;
+        }
+
+        select,
+        input,
+        textarea,
+        button {
+          padding: 10px;
+          font-size: 0.95rem;
+        }
+
+        button {
+          padding: 12px;
+        }
+      }
+
+      select:focus,
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(74, 107, 255, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Send Virtual Message</h2>
+
+      <label for="sender">Select Sender</label>
+      <input
+        type="text"
+        id="senderSearch"
+        placeholder="Search sender..."
+        style="margin-bottom: 0.5rem"
+      />
+      <select id="sender">
+        <option value="">-- Choose sender --</option>
+        <option value="Flipkart">Flipkart</option>
+        <option value="Paytm">Paytm</option>
+        <option value="Amazon">Amazon</option>
+        <option value="Airtel">Airtel</option>
+      </select>
+
+      <label for="template">Choose Message Template</label>
+      <select id="template">
+        <option value="">-- Choose template or enter manually below --</option>
+        <option value="Your OTP is 123456">OTP Message</option>
+        <option value="Your order #1234 has been shipped.">
+          Order Shipped
+        </option>
+        <option value="Recharge successful for ₹199.">
+          Recharge Confirmation
+        </option>
+      </select>
+
+      <label for="message">Or Write Message Manually</label>
+      <textarea
+        id="message"
+        rows="4"
+        placeholder="Enter message manually if not using template..."
+      ></textarea>
+
+      <button onclick="submitMessage()">Send Message</button>
+
+      <p class="note">
+        The backend will handle virtual number routing based on sender.
+      </p>
+    </div>
+
+    <script>
+      const template = document.getElementById("template");
+      const message = document.getElementById("message");
+      const senderSearch = document.getElementById("senderSearch");
+      const senderSelect = document.getElementById("sender");
+
+      // Autofill message when a template is chosen
+      template.addEventListener("change", () => {
+        if (template.value) {
+          message.value = template.value;
+        }
+      });
+
+      // Filter sender dropdown based on search input
+      senderSearch.addEventListener("input", function () {
+        const search = this.value.toLowerCase();
+        for (let option of senderSelect.options) {
+          const text = option.textContent.toLowerCase();
+          option.style.display = text.includes(search) ? "block" : "none";
+        }
+      });
+
+      async function submitMessage() {
+        const sender = senderSelect.value;
+        const msg = message.value;
+
+        if (!msg || !sender) {
+          alert("Please fill all fields.");
+          return;
+        }
+
+        const data = {
+          sender: sender,
+          message: msg,
+        };
+
+        try {
+          const response = await fetch(
+            "http://192.168.0.100:8000/api/receive-message/",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(data),
+            }
+          );
+
+          if (response.ok) {
+            alert("Message sent successfully!");
+          } else {
+            alert("Failed to send message.");
+          }
+        } catch (error) {
+          alert("Error sending message.");
+          console.error(error);
+        }
+      }
+    </script>
+  </body>
+</html>
