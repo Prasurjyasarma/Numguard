@@ -38,4 +38,4 @@ yarn-error.*
 app-example
 
 # ignore api.js file in client
-client/api.js
+api.js

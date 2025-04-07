@@ -207,16 +207,13 @@
         };
 
         try {
-          const response = await fetch(
-            "http://192.168.0.100:8000/api/receive-message/",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(data),
-            }
-          );
+          const response = await fetch("", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+          });
 
           if (response.ok) {
             alert("Message sent successfully!");
