@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,10 +14,27 @@ import { Ionicons } from "@expo/vector-icons";
 import netflixLogo from "../assets/images/netflix.png";
 import appleLogo from "../assets/images/apple.png";
 import hotstarLogo from "../assets/images/hotstar.png";
+import data from "../data.json";
 
 interface ServiceOptionProps {
   title: string;
   onPress: () => void;
+}
+
+// Interface for notification data
+interface Notification {
+  id: number;
+  sender: string;
+  message: string;
+  timestamp: string;
+  category: string;
+  tag: string;
+  is_read: boolean;
+}
+
+// Interface for category counts
+interface CategoryUnreadCounts {
+  [key: string]: number;
 }
 
 const ServiceOption: React.FC<ServiceOptionProps> = ({ title, onPress }) => (
@@ -30,6 +47,34 @@ const ServiceOption: React.FC<ServiceOptionProps> = ({ title, onPress }) => (
 const HomeScreen: React.FC = () => {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [totalUnread, setTotalUnread] = useState(0);
+  const [categoryUnreadCounts, setCategoryUnreadCounts] =
+    useState<CategoryUnreadCounts>({});
+
+  // Calculate unread notifications by category
+  useEffect(() => {
+    const notifications = data as Notification[];
+
+    // Count total unread
+    const unreadCount = notifications.filter((item) => !item.is_read).length;
+    setTotalUnread(unreadCount);
+
+    // Count unread by category
+    const categoryCounts: CategoryUnreadCounts = {};
+
+    notifications.forEach((notification) => {
+      if (!notification.is_read) {
+        const category = notification.category;
+        if (categoryCounts[category]) {
+          categoryCounts[category]++;
+        } else {
+          categoryCounts[category] = 1;
+        }
+      }
+    });
+
+    setCategoryUnreadCounts(categoryCounts);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -142,9 +187,12 @@ const HomeScreen: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
+        {/* Updated notification container showing total unread */}
         <View style={styles.notificationContainer}>
           <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-          <Text style={styles.notificationText}>5 new notification</Text>
+          <Text style={styles.notificationText}>
+            {totalUnread} new notification{totalUnread !== 1 ? "s" : ""}
+          </Text>
         </View>
 
         <View style={styles.serviceOptions}>
@@ -362,6 +410,44 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
     fontSize: 14,
     marginLeft: 4,
+  },
+  categoryContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  categoryItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  categoryName: {
+    fontSize: 14,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  categoryBadge: {
+    backgroundColor: "#FF3B30",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  categoryCount: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   serviceOptions: {
     marginHorizontal: 16,

@@ -6,12 +6,40 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  Alert,
+  Clipboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import data from "../data.json";
+
+interface Notification {
+  id: number;
+  sender: string;
+  message: string;
+  timestamp: string;
+  category: string;
+  tag: string;
+  is_read: boolean;
+}
 
 const VirtualNumberDashboard: React.FC = () => {
   const router = useRouter();
+
+  const getUnreadCount = (category: string): number => {
+    return (data as Notification[]).filter(
+      (notification) =>
+        notification.category === category && !notification.is_read
+    ).length;
+  };
+
+  const ecommerceUnreadCount = getUnreadCount("e-commerce");
+  const socialMediaUnreadCount = getUnreadCount("social media");
+
+  const copyToClipboard = (number: string): void => {
+    Clipboard.setString(number);
+    Alert.alert("Copied", `${number} copied to clipboard`);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -38,7 +66,18 @@ const VirtualNumberDashboard: React.FC = () => {
             <View style={styles.tagContainer}>
               <Text style={styles.summaryTag}>e-commerce</Text>
             </View>
-            <Text style={styles.summaryNumber}>9834710256</Text>
+            <TouchableOpacity
+              onPress={() => copyToClipboard("9834710256")}
+              style={styles.copyableNumber}
+            >
+              <Text style={styles.summaryNumber}>9834710256</Text>
+              <Ionicons
+                name="copy-outline"
+                size={14}
+                color="#666"
+                style={styles.copyIcon}
+              />
+            </TouchableOpacity>
           </View>
           <View style={styles.summaryBox}>
             <Text style={styles.summaryTitle}>Total available numbers</Text>
@@ -46,7 +85,18 @@ const VirtualNumberDashboard: React.FC = () => {
             <View style={styles.tagContainer}>
               <Text style={styles.summaryTag}>social-media</Text>
             </View>
-            <Text style={styles.summaryNumber}>9834710256</Text>
+            <TouchableOpacity
+              onPress={() => copyToClipboard("7650923814")}
+              style={styles.copyableNumber}
+            >
+              <Text style={styles.summaryNumber}>7650923814</Text>
+              <Ionicons
+                name="copy-outline"
+                size={14}
+                color="#666"
+                style={styles.copyIcon}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -62,34 +112,45 @@ const VirtualNumberDashboard: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Manage Cards */}
-        <View style={styles.manageCard}>
+        {/* E-commerce Manage Card */}
+        <TouchableOpacity
+          onPress={() => router.push("/e-commerce")}
+          style={styles.manageCard}
+        >
           <View>
-            <View style={styles.notificationContainer}>
-              <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-              <Text style={styles.notificationText}>3 new notifications</Text>
-            </View>
+            {ecommerceUnreadCount > 0 && (
+              <View style={styles.notificationContainer}>
+                <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                <Text style={styles.notificationText}>
+                  {ecommerceUnreadCount} new notifications
+                </Text>
+              </View>
+            )}
             <Text style={styles.manageTitle}>e-commerce</Text>
             <Text style={styles.manageNumber}>(9834710256)</Text>
           </View>
-          <TouchableOpacity>
-            <Ionicons name="chevron-forward" size={22} color="#000" />
-          </TouchableOpacity>
-        </View>
+          <Ionicons name="chevron-forward" size={22} color="#000" />
+        </TouchableOpacity>
 
-        <View style={styles.manageCard}>
+        {/* Social Media Manage Card */}
+        <TouchableOpacity
+          onPress={() => router.push("/social")}
+          style={styles.manageCard}
+        >
           <View>
-            <View style={styles.notificationContainer}>
-              <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-              <Text style={styles.notificationText}>4 new notifications</Text>
-            </View>
+            {socialMediaUnreadCount > 0 && (
+              <View style={styles.notificationContainer}>
+                <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                <Text style={styles.notificationText}>
+                  {socialMediaUnreadCount} new notifications
+                </Text>
+              </View>
+            )}
             <Text style={styles.manageTitle}>social-media</Text>
             <Text style={styles.manageNumber}>(7650923814)</Text>
           </View>
-          <TouchableOpacity>
-            <Ionicons name="chevron-forward" size={22} color="#000" />
-          </TouchableOpacity>
-        </View>
+          <Ionicons name="chevron-forward" size={22} color="#000" />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -158,10 +219,17 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#1c9b7c",
   },
+  copyableNumber: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   summaryNumber: {
     fontSize: 14,
     fontWeight: "600",
     color: "#333",
+  },
+  copyIcon: {
+    marginLeft: 4,
   },
   requestButton: {
     backgroundColor: "#64B5F6",

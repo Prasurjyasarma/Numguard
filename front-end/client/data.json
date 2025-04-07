@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "sender": "AMAZON",
+    "message": "Your order #123456 has been shipped.",
+    "timestamp": "2025-04-07T12:34:56Z",
+    "category": "e-commerce",
+    "tag": "amazon",
+    "is_read": false
+  },
+  {
+    "id": 2,
+    "sender": "FLIPKART",
+    "message": "Your return request for item #98765 has been approved.",
+    "timestamp": "2025-04-06T10:15:30Z",
+    "category": "e-commerce",
+    "tag": "flipkart",
+    "is_read": false
+  },
+  {
+    "id": 3,
+    "sender": "INSTAGRAM",
+    "message": "New login detected from a Chrome browser.",
+    "timestamp": "2025-04-07T09:45:10Z",
+    "category": "social media",
+    "tag": "instagram",
+    "is_read": true
+  },
+  {
+    "id": 4,
+    "sender": "TWITTER",
+    "message": "You have a new follower!",
+    "timestamp": "2025-04-05T18:22:40Z",
+    "category": "social media",
+    "tag": "twitter",
+    "is_read": false
+  },
+  {
+    "id": 5,
+    "sender": "AMAZON",
+    "message": "Your package has been delivered.",
+    "timestamp": "2025-04-03T15:30:00Z",
+    "category": "e-commerce",
+    "tag": "amazon",
+    "is_read": true
+  },
+  {
+    "id": 6,
+    "sender": "FACEBOOK",
+    "message": "Your friend tagged you in a post.",
+    "timestamp": "2025-04-02T08:00:00Z",
+    "category": "social media",
+    "tag": "facebook",
+    "is_read": false
+  }
+]
