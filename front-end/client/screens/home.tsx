@@ -15,13 +15,13 @@ import netflixLogo from "../assets/images/netflix.png";
 import appleLogo from "../assets/images/apple.png";
 import hotstarLogo from "../assets/images/hotstar.png";
 import data from "../data.json";
+import api from "../api"; //
 
 interface ServiceOptionProps {
   title: string;
   onPress: () => void;
 }
 
-// Interface for notification data
 interface Notification {
   id: number;
   sender: string;
@@ -32,7 +32,6 @@ interface Notification {
   is_read: boolean;
 }
 
-// Interface for category counts
 interface CategoryUnreadCounts {
   [key: string]: number;
 }
@@ -40,7 +39,7 @@ interface CategoryUnreadCounts {
 const ServiceOption: React.FC<ServiceOptionProps> = ({ title, onPress }) => (
   <TouchableOpacity style={styles.serviceOption} onPress={onPress}>
     <Text style={styles.serviceOptionText}>{title}</Text>
-    <Ionicons name="chevron-forward" size={20} color="#888" />
+    <Ionicons name="chevron-forward" size={22} color="#000" />
   </TouchableOpacity>
 );
 
@@ -50,26 +49,35 @@ const HomeScreen: React.FC = () => {
   const [totalUnread, setTotalUnread] = useState(0);
   const [categoryUnreadCounts, setCategoryUnreadCounts] =
     useState<CategoryUnreadCounts>({});
+  const [physicalNumber, setPhysicalNumber] = useState<string>("");
 
-  // Calculate unread notifications by category
+  // Fetch physical number
+  useEffect(() => {
+    const fetchPhysicalNumber = async () => {
+      try {
+        const response = await api.get("/physical-numbers/");
+        const number = response.data[0]?.number || "";
+        setPhysicalNumber(number);
+      } catch (error) {
+        console.error("Error fetching physical number:", error);
+      }
+    };
+
+    fetchPhysicalNumber();
+  }, []);
+
   useEffect(() => {
     const notifications = data as Notification[];
 
-    // Count total unread
     const unreadCount = notifications.filter((item) => !item.is_read).length;
     setTotalUnread(unreadCount);
 
-    // Count unread by category
     const categoryCounts: CategoryUnreadCounts = {};
 
     notifications.forEach((notification) => {
       if (!notification.is_read) {
         const category = notification.category;
-        if (categoryCounts[category]) {
-          categoryCounts[category]++;
-        } else {
-          categoryCounts[category] = 1;
-        }
+        categoryCounts[category] = (categoryCounts[category] || 0) + 1;
       }
     });
 
@@ -83,7 +91,9 @@ const HomeScreen: React.FC = () => {
           <TouchableOpacity style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.phoneNumber}>99XXX-XXX29</Text>
+          <Text style={styles.phoneNumber}>
+            {physicalNumber ? maskNumber(physicalNumber) : "Loading..."}
+          </Text>
           <Text style={styles.prepaidLabel}>(prepaid)</Text>
           <TouchableOpacity
             style={styles.helpButton}
@@ -104,23 +114,7 @@ const HomeScreen: React.FC = () => {
             <View style={styles.modalContainer}>
               <Text style={styles.modalTitle}>Prototype Notice</Text>
               <Text style={styles.modalText}>
-                ⚠️ This application is currently in its prototype stage and is
-                intended solely for demonstration and testing purposes. Some
-                features may be incomplete, under development, or simulated. The
-                services and functionalities you see here, such as recharge
-                options, and media subscriptions, are not connected to real
-                telecom networks or service providers at this time.
-                {"\n\n"}
-                Please note that no actual transactions or service activations
-                will occur through this app. Any data or interaction you perform
-                here will remain local and used only to showcase the design and
-                flow of the final product.
-                {"\n\n"}
-                We are actively working to improve the user experience and build
-                out the full functionality. Your feedback and support are
-                greatly appreciated.
-                {"\n\n"}
-                Thank you for exploring the prototype!
+                ⚠️ This application is currently in its prototype stage...
               </Text>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -187,7 +181,6 @@ const HomeScreen: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Updated notification container showing total unread */}
         <View style={styles.notificationContainer}>
           <Ionicons name="alert-circle" size={16} color="#FF3B30" />
           <Text style={styles.notificationText}>
@@ -209,6 +202,14 @@ const HomeScreen: React.FC = () => {
   );
 };
 
+// Helper function to mask number
+const maskNumber = (number: string) => {
+  if (number.length === 10) {
+    return `${number.slice(0, 2)}XXX-XXX${number.slice(7)}`;
+  }
+  return number;
+};
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -222,6 +223,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 15,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
   },
   backButton: {
     padding: 8,
@@ -229,7 +233,8 @@ const styles = StyleSheet.create({
   phoneNumber: {
     fontSize: 18,
     fontWeight: "700",
-    marginLeft: 8,
+    marginLeft: 6,
+    color: "#333",
   },
   prepaidLabel: {
     fontSize: 16,
@@ -242,53 +247,64 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContainer: {
     width: "85%",
     backgroundColor: "#fff",
+    borderRadius: 16,
     padding: 24,
-    borderRadius: 12,
+    alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowRadius: 10,
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#333",
   },
   modalText: {
     fontSize: 14,
     color: "#333",
     marginBottom: 20,
+    textAlign: "center",
   },
   closeButton: {
-    alignSelf: "flex-end",
-    backgroundColor: "#64B5F6",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    width: "100%",
+    alignItems: "center",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   closeButtonText: {
     color: "#fff",
     fontWeight: "600",
+    fontSize: 16,
   },
   planCard: {
     backgroundColor: "#fff",
-    borderRadius: 12,
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 16,
+    borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   planHeaderRow: {
     flexDirection: "row",
@@ -299,9 +315,10 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 18,
     fontWeight: "700",
+    color: "#333",
   },
   statusBadge: {
-    backgroundColor: "#4CD964",
+    backgroundColor: "#4CAF50",
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 16,
@@ -310,6 +327,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+    textTransform: "uppercase",
   },
   planDetailsContainer: {
     flexDirection: "row",
@@ -321,23 +339,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailTitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#666",
     marginBottom: 4,
+    fontWeight: "500",
   },
   detailValue: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#333",
   },
   benefitsSection: {
     marginTop: 8,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: "#e0e0e0",
   },
   benefitsTitle: {
     fontSize: 14,
-    color: "black",
+    color: "#333",
     fontWeight: "600",
     marginBottom: 8,
   },
@@ -360,29 +380,41 @@ const styles = StyleSheet.create({
   },
   deactivateButton: {
     backgroundColor: "#FF3B30",
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 20,
+    borderRadius: 25,
     flex: 1,
     marginRight: 8,
     alignItems: "center",
+    shadowColor: "#FF3B30",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   deactivateText: {
     color: "#fff",
     fontWeight: "600",
+    fontSize: 16,
   },
   detailsButton: {
-    backgroundColor: "#64B5F6",
-    paddingVertical: 8,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 20,
+    borderRadius: 25,
     flex: 1,
     marginLeft: 8,
     alignItems: "center",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   detailsText: {
     color: "#fff",
     fontWeight: "600",
+    fontSize: 16,
   },
   dividerContainer: {
     flexDirection: "row",
@@ -393,61 +425,31 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#ddd",
+    backgroundColor: "#e0e0e0",
   },
   dividerText: {
     paddingHorizontal: 16,
     color: "#666",
     fontSize: 14,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   notificationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginLeft: 16,
   },
   notificationText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  categoryContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  categoryItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  categoryName: {
-    fontSize: 14,
-    fontWeight: "500",
-    textTransform: "capitalize",
-  },
-  categoryBadge: {
-    backgroundColor: "#FF3B30",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    minWidth: 24,
-    alignItems: "center",
-  },
-  categoryCount: {
-    color: "#fff",
+    color: "#D32F2F",
     fontSize: 12,
-    fontWeight: "600",
+    marginLeft: 4,
+    fontWeight: "500",
   },
   serviceOptions: {
     marginHorizontal: 16,
@@ -460,16 +462,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   serviceOptionText: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#333",
   },
 });
 

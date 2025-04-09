@@ -2,19 +2,46 @@ from django.db import models
 
 # Create your models here.
 
+class PhysicalNumber(models.Model):
+    number=models.CharField(max_length=10,unique=True)
+    owner_name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.number}-{self.owner_name}"
+    
+    def has_capacity_for_virtual_number(self):
+        return self.virtual_numbers.count() < 3
+
 class VirtualNumber(models.Model):
     CATEGORY_CHOICES=[
         ('social-media', 'Social Media'),
         ('e-commerce', 'E-commerce'),
+        ('personal','Personal')
     ]
     numbers=models.CharField(max_length=10)
     category=models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    physical_number=models.ForeignKey(PhysicalNumber,on_delete=models.CASCADE,related_name='virtual_numbers')
     is_active=models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"{self.numbers}-{self.category}"
+    
+    class Meta:
+        constraints=[
+            models.UniqueConstraint(
+                fields=['physical_number','category'],
+                name='unique_virtual_number_per_category'
+            ),
+            models.UniqueConstraint(
+                fields=['numbers'],
+                name='unique_virtual_number'
+            )
+        ]
     
     
 class Message(models.Model):
