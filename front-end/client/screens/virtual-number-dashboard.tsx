@@ -190,7 +190,7 @@ const VirtualNumberDashboard: React.FC = () => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push("/")}
           >
             <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
@@ -366,7 +366,7 @@ const VirtualNumberDashboard: React.FC = () => {
         {personalNumbers.map((number) => (
           <TouchableOpacity
             key={number.id}
-            onPress={() => router.push("#")}
+            onPress={() => router.push("/personal")}
             style={styles.manageCard}
           >
             <View>
@@ -736,7 +736,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statsBox: {
+    flex: 1,
     alignItems: "center",
+    flexDirection: "column",
   },
   statsLabel: {
     fontSize: 12,

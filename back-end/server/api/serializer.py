@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import VirtualNumber,Message,PhysicalNumber
+from .models import VirtualNumber,Message,PhysicalNumber,DeletedVirtualNumber
 
 
 class PhysicalNumberSerializer(serializers.ModelSerializer):
@@ -46,6 +46,17 @@ class VirtualNumberSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"This physical number already has a virtual number for {data.get('category')}")
             
         return data
+    
+    
+    
+class DeletedVirtualNumberSerializer(serializers.ModelSerializer):
+    physical_number = PhysicalNumberSerializer(read_only=True)
+    
+    class Meta:
+        model=DeletedVirtualNumber
+        fields='__all__'
+        read_only_fields=['created_at']    
+    
     
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:

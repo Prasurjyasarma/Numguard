@@ -42,6 +42,24 @@ class VirtualNumber(models.Model):
                 name='unique_virtual_number'
             )
         ]
+        
+
+class DeletedVirtualNumber(models.Model):
+    CATEGORY_CHOICES = [
+        ('social-media', 'Social Media'),
+        ('e-commerce', 'E-commerce'),
+        ('personal', 'Personal')
+    ]
+    number = models.CharField(max_length=10)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    physical_number=models.ForeignKey(PhysicalNumber,on_delete=models.CASCADE,related_name='deleted_virtual_numbers')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.number}-{self.category}"
+    
+    
+    
     
     
 class Message(models.Model):
