@@ -6,6 +6,7 @@ from .models import VirtualNumber, Message, PhysicalNumber, DeletedVirtualNumber
 from .serializer import VirtualNumberSerializer, MessageSerializer, PhysicalNumberSerializer, DeletedVirtualNumberSerializer
 from rest_framework.permissions import AllowAny
 import random
+from django.utils import timezone
 
 #! ALGO TO GENERATE RANDOM NUMBER
 st = random.randint(6, 9)
@@ -124,7 +125,101 @@ def delete_virtual_number(requset,virtual_number_id):
         
 
 
+#! GETING OTP FROM EXTERNAL WEBSITES (USE CASES)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def receive_message(request):
+    sender_name = request.GET.get('sender_name')
+    otp = request.GET.get('message')
+    
+    if not otp or not sender_name:
+        return Response({"message": "Both message and sender name are required"}, 
+                        status=status.HTTP_400_BAD_REQUEST)
 
+    result = forward_message(sender_name, otp)
+    
+    if result.get('success'):
+        return Response({
+            "message": f"Message from {sender_name} received and processed successfully",
+            "details": result
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({
+            "message": "Failed to process Message",
+            "details": result
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+SENDER_CATEGORIES = {
+    # E-commerce senders
+    'amazon': 'e-commerce',
+    'flipkart': 'e-commerce',
+    'ebay': 'e-commerce',
+    'walmart': 'e-commerce',
+    # Social media senders
+    'insta': 'social-media',
+    'fb': 'social-media',
+    'twitter': 'social-media',
+    'linkedin': 'social-media',
+    # Personal senders
+    '12': 'personal',
+    'personal': 'personal',
+    'family': 'personal',
+    'friend': 'personal',
+}
+
+#! SENDING THE RECEIVED OTP TO THE FRONT END 
+def forward_message(sender_name,msg):
+    category=SENDER_CATEGORIES.get(sender_name.lower())
+
+    if not category:
+                return {
+            'success': False, 
+            'message': f"Unknown sender: {sender_name}"
+        }
+    
+    try:
+        virtual_numbers=VirtualNumber.objects.filter(category=category,is_active=True)
+
+        if not virtual_numbers.exists():
+                        return {
+                'success': False,
+                'message': f"No active virtual numbers found for category: {category}"
+            }
+        message_create=[]
+        for virtual_number in virtual_numbers:
+             message=Message.objects.create( 
+                virtual_number=virtual_number,
+                sender=sender_name,
+                message_body=msg,
+                is_read=False,
+                received_at=timezone.now()
+             )
+             message_create.append(str(message))
+
+             return  {
+            'success': True,
+            'category': category,
+            'virtual_numbers': [vn.numbers for vn in virtual_numbers],
+            'message_body': [
+                 {
+                    'id': msg.id,
+                    'sender': msg.sender,
+                    'recipient': msg.virtual_number.numbers,
+                    'message_body': msg.message_body,
+                    'received_at': msg.received_at
+                 }for msg in message_create
+            ],
+            'messages_created': len(message_create)
+        }
+    
+    except Exception as e:
+          return {
+            'success': False,
+            'message': f"Error processing OTP: {str(e)}"
+        }
+
+    
 
 
 
