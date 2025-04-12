@@ -14,17 +14,17 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../api";
-import data from "../data.json";
 
-// Interface for notification data
-interface Notification {
+// Interface for message data
+interface Message {
   id: number;
+  virtual_number: number;
   sender: string;
-  message: string;
-  timestamp: string;
+  message_body: string;
   category: string;
-  tag: string;
   is_read: boolean;
+  received_at: string;
+  created_at: string;
 }
 
 // Interface for virtual number data
@@ -38,7 +38,7 @@ interface VirtualNumber {
 
 const Personal: React.FC = () => {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(data);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [totalNotifications, setTotalNotifications] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [currentCategory, setCurrentCategory] = useState("personal");
@@ -46,7 +46,11 @@ const Personal: React.FC = () => {
   const [virtualNumberId, setVirtualNumberId] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<number | null>(null);
+  const [messageDeleteLoading, setMessageDeleteLoading] = useState(false);
+  const [messageDeleteModalVisible, setMessageDeleteModalVisible] = useState(false);
 
   // Fetch virtual number based on category
   useEffect(() => {
@@ -73,26 +77,55 @@ const Personal: React.FC = () => {
     fetchVirtualNumber();
   }, [currentCategory]);
 
+  // Fetch messages based on category
   useEffect(() => {
-    // Filter notifications for current category
-    const categoryNotifications = notifications.filter(
-      (notif) => notif.category === currentCategory
-    );
-    setTotalNotifications(categoryNotifications.length);
+    const fetchMessages = async () => {
+      setMessagesLoading(true);
+      try {
+        const response = await api.get(`/forward-message/?category=${currentCategory}`);
+        if (response.data) {
+          setMessages(response.data);
+          
+          // Calculate total and unread notifications
+          const total = response.data.length;
+          const unread = response.data.filter((msg: Message) => !msg.is_read).length;
+          
+          setTotalNotifications(total);
+          setUnreadNotifications(unread);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        Alert.alert("Error", "Failed to fetch messages");
+      } finally {
+        setMessagesLoading(false);
+      }
+    };
 
-    // Count unread notifications
-    const unreadCount = categoryNotifications.filter(
-      (notif) => !notif.is_read
-    ).length;
-    setUnreadNotifications(unreadCount);
-  }, [notifications, currentCategory]);
+    if (currentCategory) {
+      fetchMessages();
+    }
+  }, [currentCategory]);
 
-  const handleNotificationPress = (id: number) => {
-    // Update is_read status to true when notification is clicked
-    const updatedNotifications = notifications.map((notif) =>
-      notif.id === id ? { ...notif, is_read: true } : notif
-    );
-    setNotifications(updatedNotifications);
+  const handleNotificationPress = async (id: number) => {
+    try {
+      // Call API to mark message as read
+      const response = await api.get(`/read-message/${id}/`);
+      
+      if (response.status === 200) {
+        // Update local state to mark message as read
+        const updatedMessages = messages.map((msg) =>
+          msg.id === id ? { ...msg, is_read: true } : msg
+        );
+        setMessages(updatedMessages);
+        
+        // Update notification counts
+        const updatedUnreadCount = unreadNotifications > 0 ? unreadNotifications - 1 : 0;
+        setUnreadNotifications(updatedUnreadCount);
+      }
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      Alert.alert("Error", "Failed to mark message as read");
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -134,41 +167,54 @@ const Personal: React.FC = () => {
     }
   };
 
-  // Filter notifications for current category
-  const filteredNotifications = notifications.filter(
-    (notif) => notif.category === currentCategory
-  );
-
-  const formatCategoryName = (category: string) => {
-    return category.charAt(0).toUpperCase() + category.slice(1);
+  // Handle message deletion request
+  const handleMessageDeleteRequest = (messageId: number) => {
+    setMessageToDelete(messageId);
+    setMessageDeleteModalVisible(true);
   };
 
-  const renderPersonalContent = (item: Notification) => {
-    switch (item.tag) {
-      case "bank":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>View transaction details</Text>
-          </>
-        );
-      case "government":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>View official notice</Text>
-          </>
-        );
-      case "healthcare":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>View appointment details</Text>
-          </>
-        );
-      default:
-        return <Text style={styles.messageText}>{item.message}</Text>;
+  // Cancel message deletion
+  const handleCancelMessageDelete = () => {
+    setMessageToDelete(null);
+    setMessageDeleteModalVisible(false);
+  };
+
+  // Confirm and process message deletion
+  const handleConfirmMessageDelete = async () => {
+    if (messageToDelete) {
+      try {
+        setMessageDeleteLoading(true);
+        const response = await api.delete(`/delete-message/${messageToDelete}/`);
+        if (response.status === 200) {
+          // Remove the deleted message from the state
+          const updatedMessages = messages.filter(msg => msg.id !== messageToDelete);
+          setMessages(updatedMessages);
+          
+          // Update notification counts
+          const wasUnread = messages.find(msg => msg.id === messageToDelete)?.is_read === false;
+          setTotalNotifications(prevTotal => prevTotal - 1);
+          if (wasUnread) {
+            setUnreadNotifications(prevUnread => prevUnread - 1);
+          }
+          
+          setMessageDeleteModalVisible(false);
+          Alert.alert("Success", "Message deleted successfully");
+        }
+      } catch (error) {
+        console.error("Error deleting message:", error);
+        Alert.alert("Error", "Failed to delete message");
+      } finally {
+        setMessageDeleteLoading(false);
+        setMessageToDelete(null);
+      }
     }
+  };
+
+  const formatCategoryName = (category: string) => {
+    return category
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   return (
@@ -227,37 +273,54 @@ const Personal: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Notifications List */}
+        {/* Messages List */}
         <View style={styles.listContainer}>
-          {filteredNotifications.map((item) => (
-            <TouchableOpacity
-              key={item.id.toString()}
-              style={styles.notificationItem}
-              onPress={() => handleNotificationPress(item.id)}
-            >
-              {!item.is_read && (
-                <View style={styles.notificationContainer}>
-                  <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-                  <Text style={styles.notificationText}>New</Text>
-                </View>
-              )}
-              <View style={styles.notificationContent}>
+          {messagesLoading ? (
+            <ActivityIndicator size="large" color="#007AFF" style={styles.loadingIndicator} />
+          ) : messages.length === 0 ? (
+            <Text style={styles.noMessagesText}>No messages found</Text>
+          ) : (
+            messages.map((item) => (
+              <TouchableOpacity
+                key={item.id.toString()}
+                style={styles.notificationItem}
+                onPress={() => handleNotificationPress(item.id)}
+              >
                 <View style={styles.notificationHeader}>
-                  <Text style={styles.senderText}>
-                    from: {item.sender.toLowerCase()}
-                  </Text>
-                  <Text style={styles.timestampText}>
-                    {formatTimestamp(item.timestamp)}
-                  </Text>
+                  {!item.is_read && (
+                    <View style={styles.notificationContainer}>
+                      <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                      <Text style={styles.notificationText}>New</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleMessageDeleteRequest(item.id);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
                 </View>
-                {renderPersonalContent(item)}
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.notificationContent}>
+                  <View style={styles.messageHeader}>
+                    <Text style={styles.senderText}>
+                      from: {item.sender.toLowerCase()}
+                    </Text>
+                    <Text style={styles.timestampText}>
+                      {formatTimestamp(item.received_at || item.created_at)}
+                    </Text>
+                  </View>
+                  <Text style={styles.messageText}>{item.message_body}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Virtual Number Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -295,11 +358,49 @@ const Personal: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Message Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={messageDeleteModalVisible}
+        onRequestClose={handleCancelMessageDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Delete</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to delete this message?
+            </Text>
+            {messageDeleteLoading ? (
+              <ActivityIndicator
+                size="large"
+                color="#FF3B30"
+                style={styles.loadingIndicator}
+              />
+            ) : (
+              <View style={styles.modalButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={handleCancelMessageDelete}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={handleConfirmMessageDelete}
+                >
+                  <Text style={styles.confirmButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
-// Reuse the exact same styles from the Ecommerce component
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -407,6 +508,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 16,
     paddingBottom: 24,
+    minHeight: 100,
   },
   notificationItem: {
     backgroundColor: "#fff",
@@ -422,7 +524,6 @@ const styles = StyleSheet.create({
   notificationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
     backgroundColor: "#FFEBEE",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -442,6 +543,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 8,
+    position: "relative",
+  },
+  messageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   senderText: {
     fontSize: 12,
@@ -457,11 +564,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "500",
     color: "#333",
-  },
-  urlText: {
-    fontSize: 14,
-    color: "#1c9b7c",
-    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -527,6 +629,19 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginVertical: 20,
+  },
+  noMessagesText: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#666",
+    marginTop: 20,
+  },
+  deleteButton: {
+    padding: 8,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 1,
   },
 });
 

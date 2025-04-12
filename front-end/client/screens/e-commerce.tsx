@@ -85,9 +85,13 @@ const Ecommerce: React.FC = () => {
         const response = await api.get(`/forward-message/?category=${currentCategory}`);
         if (response.data) {
           setMessages(response.data);
-          // For now, we'll set these values to 0 as mentioned
-          setTotalNotifications(0);
-          setUnreadNotifications(0);
+          
+          // Calculate total and unread notifications
+          const total = response.data.length;
+          const unread = response.data.filter((msg: Message) => !msg.is_read).length;
+          
+          setTotalNotifications(total);
+          setUnreadNotifications(unread);
         }
       } catch (error) {
         console.error("Error fetching messages:", error);
@@ -102,15 +106,26 @@ const Ecommerce: React.FC = () => {
     }
   }, [currentCategory]);
 
-  const handleNotificationPress = (id: number) => {
-    // Update is_read status to true when message is clicked
-    const updatedMessages = messages.map((msg) =>
-      msg.id === id ? { ...msg, is_read: true } : msg
-    );
-    setMessages(updatedMessages);
-    
-    // Here you would also make an API call to update the is_read status
-    // This would be implemented later
+  const handleNotificationPress = async (id: number) => {
+    try {
+      // Call API to mark message as read
+      const response = await api.get(`/read-message/${id}/`);
+      
+      if (response.status === 200) {
+        // Update local state to mark message as read
+        const updatedMessages = messages.map((msg) =>
+          msg.id === id ? { ...msg, is_read: true } : msg
+        );
+        setMessages(updatedMessages);
+        
+        // Update notification counts
+        const updatedUnreadCount = unreadNotifications > 0 ? unreadNotifications - 1 : 0;
+        setUnreadNotifications(updatedUnreadCount);
+      }
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      Alert.alert("Error", "Failed to mark message as read");
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -172,7 +187,16 @@ const Ecommerce: React.FC = () => {
         const response = await api.delete(`/delete-message/${messageToDelete}/`);
         if (response.status === 200) {
           // Remove the deleted message from the state
-          setMessages(messages.filter(msg => msg.id !== messageToDelete));
+          const updatedMessages = messages.filter(msg => msg.id !== messageToDelete);
+          setMessages(updatedMessages);
+          
+          // Update notification counts
+          const wasUnread = messages.find(msg => msg.id === messageToDelete)?.is_read === false;
+          setTotalNotifications(prevTotal => prevTotal - 1);
+          if (wasUnread) {
+            setUnreadNotifications(prevUnread => prevUnread - 1);
+          }
+          
           setMessageDeleteModalVisible(false);
           Alert.alert("Success", "Message deleted successfully");
         }

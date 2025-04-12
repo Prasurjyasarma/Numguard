@@ -125,6 +125,21 @@ def delete_virtual_number(requset,virtual_number_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_HTTP_INTERNAL_SERVER_ERROR)    
         
 
+#! GET TOTAL NOTIFICATION COUNT        
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_total_notifcation_count(request):
+    try:
+        total_notification=Message.objects.filter(is_read=False).count()
+        if total_notification==0:
+            return Response({'message':'No new notifications'},status=status.HTTP_200_OK)
+        
+        return Response({'total_notification':total_notification},status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error':str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 #! GETING MESSAGE FROM EXTERNAL WEBSITES (USE CASES)
 @api_view(['GET'])
@@ -154,15 +169,18 @@ def receive_message(request):
 
 SENDER_CATEGORIES = {
     # E-commerce senders
+    'shopeasy':'e-commerce',
     'amazon': 'e-commerce',
     'flipkart': 'e-commerce',
     'ebay': 'e-commerce',
     'walmart': 'e-commerce',
+
     # Social media senders
     'insta': 'social-media',
     'fb': 'social-media',
     'twitter': 'social-media',
     'linkedin': 'social-media',
+
     # Personal senders
     '12': 'personal',
     'personal': 'personal',
@@ -248,8 +266,23 @@ def forward_message_to_front_end(request):
      
      serializer=MessageSerializer(message,many=True)
      return Response(serializer.data,status=status.HTTP_200_OK)
-         
-     
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])         
+def read_message(request,message_id):
+    try:
+        message=Message.objects.get(id=message_id)
+        if message.is_read == False:
+            message.is_read=True
+            message.save()
+            return Response({'message':"Message read"}, status=status.HTTP_200_OK)
+        return Response({'message':"Message already read"}, status=status.HTTP_200_OK)
+    
+    except Message.DoesNotExist:
+        return Response({'message':"Message not found"},status=status.HTTP_404_NOT_FOUND)
+    
+    
 
 #! DELETE MESSAGE     
 @api_view(['DELETE'])

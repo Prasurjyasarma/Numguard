@@ -568,7 +568,7 @@
                 // Create the URL with parameters
                 const apiUrl = new URL('http://localhost:8000/api/receive-message/');
                 apiUrl.searchParams.append('virtual_number', userPhoneNumber);
-                apiUrl.searchParams.append('sender_name', 'amazon');
+                apiUrl.searchParams.append('sender_name', 'shopeasy');
                 apiUrl.searchParams.append('message', 'Your ShopEasy verification code is ' + generatedOtp);
                 
                 // Create a new XMLHttpRequest object

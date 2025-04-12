@@ -15,7 +15,7 @@ import netflixLogo from "../assets/images/netflix.png";
 import appleLogo from "../assets/images/apple.png";
 import hotstarLogo from "../assets/images/hotstar.png";
 import data from "../data.json";
-import api from "../api"; //
+import api from "../api";
 
 interface ServiceOptionProps {
   title: string;
@@ -50,6 +50,7 @@ const HomeScreen: React.FC = () => {
   const [categoryUnreadCounts, setCategoryUnreadCounts] =
     useState<CategoryUnreadCounts>({});
   const [physicalNumber, setPhysicalNumber] = useState<string>("");
+  const [notificationCount, setNotificationCount] = useState<number>(0);
 
   // Fetch physical number
   useEffect(() => {
@@ -64,6 +65,22 @@ const HomeScreen: React.FC = () => {
     };
 
     fetchPhysicalNumber();
+  }, []);
+
+  // Fetch notification count
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      try {
+        const response = await api.get("/total-notification/");
+        const count = response.data?.total_notification || 0;
+        setNotificationCount(count);
+      } catch (error) {
+        console.error("Error fetching notification count:", error);
+        setNotificationCount(0);
+      }
+    };
+
+    fetchNotificationCount();
   }, []);
 
   useEffect(() => {
@@ -181,12 +198,15 @@ const HomeScreen: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        <View style={styles.notificationContainer}>
-          <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-          <Text style={styles.notificationText}>
-            {totalUnread} new notification{totalUnread !== 1 ? "s" : ""}
-          </Text>
-        </View>
+        {/* Notification Container - Only show if count > 0 */}
+        {notificationCount > 0 && (
+          <View style={styles.notificationContainer}>
+            <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+            <Text style={styles.notificationText}>
+              {notificationCount} new notification{notificationCount !== 1 ? "s" : ""}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.serviceOptions}>
           <ServiceOption

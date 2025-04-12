@@ -36,7 +36,7 @@ interface VirtualNumber {
   is_active: boolean;
 }
 
-const Ecommerce: React.FC = () => {
+const SocialMedia: React.FC = () => {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [totalNotifications, setTotalNotifications] = useState(0);
@@ -48,6 +48,9 @@ const Ecommerce: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<number | null>(null);
+  const [messageDeleteLoading, setMessageDeleteLoading] = useState(false);
+  const [messageDeleteModalVisible, setMessageDeleteModalVisible] = useState(false);
 
   // Fetch virtual number based on category
   useEffect(() => {
@@ -82,9 +85,13 @@ const Ecommerce: React.FC = () => {
         const response = await api.get(`/forward-message/?category=${currentCategory}`);
         if (response.data) {
           setMessages(response.data);
-          // For now, we'll set these values to 0 as mentioned
-          setTotalNotifications(0);
-          setUnreadNotifications(0);
+          
+          // Calculate total and unread notifications
+          const total = response.data.length;
+          const unread = response.data.filter((msg: Message) => !msg.is_read).length;
+          
+          setTotalNotifications(total);
+          setUnreadNotifications(unread);
         }
       } catch (error) {
         console.error("Error fetching messages:", error);
@@ -99,15 +106,26 @@ const Ecommerce: React.FC = () => {
     }
   }, [currentCategory]);
 
-  const handleNotificationPress = (id: number) => {
-    // Update is_read status to true when message is clicked
-    const updatedMessages = messages.map((msg) =>
-      msg.id === id ? { ...msg, is_read: true } : msg
-    );
-    setMessages(updatedMessages);
-    
-    // Here you would also make an API call to update the is_read status
-    // This would be implemented later
+  const handleNotificationPress = async (id: number) => {
+    try {
+      // Call API to mark message as read
+      const response = await api.get(`/read-message/${id}/`);
+      
+      if (response.status === 200) {
+        // Update local state to mark message as read
+        const updatedMessages = messages.map((msg) =>
+          msg.id === id ? { ...msg, is_read: true } : msg
+        );
+        setMessages(updatedMessages);
+        
+        // Update notification counts
+        const updatedUnreadCount = unreadNotifications > 0 ? unreadNotifications - 1 : 0;
+        setUnreadNotifications(updatedUnreadCount);
+      }
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      Alert.alert("Error", "Failed to mark message as read");
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -146,6 +164,49 @@ const Ecommerce: React.FC = () => {
     } else {
       Alert.alert("Error", "No virtual number to delete");
       setModalVisible(false);
+    }
+  };
+
+  // Handle message deletion request
+  const handleMessageDeleteRequest = (messageId: number) => {
+    setMessageToDelete(messageId);
+    setMessageDeleteModalVisible(true);
+  };
+
+  // Cancel message deletion
+  const handleCancelMessageDelete = () => {
+    setMessageToDelete(null);
+    setMessageDeleteModalVisible(false);
+  };
+
+  // Confirm and process message deletion
+  const handleConfirmMessageDelete = async () => {
+    if (messageToDelete) {
+      try {
+        setMessageDeleteLoading(true);
+        const response = await api.delete(`/delete-message/${messageToDelete}/`);
+        if (response.status === 200) {
+          // Remove the deleted message from the state
+          const updatedMessages = messages.filter(msg => msg.id !== messageToDelete);
+          setMessages(updatedMessages);
+          
+          // Update notification counts
+          const wasUnread = messages.find(msg => msg.id === messageToDelete)?.is_read === false;
+          setTotalNotifications(prevTotal => prevTotal - 1);
+          if (wasUnread) {
+            setUnreadNotifications(prevUnread => prevUnread - 1);
+          }
+          
+          setMessageDeleteModalVisible(false);
+          Alert.alert("Success", "Message deleted successfully");
+        }
+      } catch (error) {
+        console.error("Error deleting message:", error);
+        Alert.alert("Error", "Failed to delete message");
+      } finally {
+        setMessageDeleteLoading(false);
+        setMessageToDelete(null);
+      }
     }
   };
 
@@ -225,14 +286,25 @@ const Ecommerce: React.FC = () => {
                 style={styles.notificationItem}
                 onPress={() => handleNotificationPress(item.id)}
               >
-                {!item.is_read && (
-                  <View style={styles.notificationContainer}>
-                    <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-                    <Text style={styles.notificationText}>New</Text>
-                  </View>
-                )}
+                <View style={styles.notificationHeader}>
+                  {!item.is_read && (
+                    <View style={styles.notificationContainer}>
+                      <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                      <Text style={styles.notificationText}>New</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleMessageDeleteRequest(item.id);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.notificationContent}>
-                  <View style={styles.notificationHeader}>
+                  <View style={styles.messageHeader}>
                     <Text style={styles.senderText}>
                       from: {item.sender.toLowerCase()}
                     </Text>
@@ -241,16 +313,6 @@ const Ecommerce: React.FC = () => {
                     </Text>
                   </View>
                   <Text style={styles.messageText}>{item.message_body}</Text>
-                  {item.sender.toLowerCase() === "amazon" && (
-                    <Text style={styles.urlText}>
-                      Shop now • https://amzn.to/summersale
-                    </Text>
-                  )}
-                  {item.sender.toLowerCase() === "amazon" && (
-                    <Text style={styles.offerText}>
-                      Offer valid till Apr 5th!
-                    </Text>
-                  )}
                 </View>
               </TouchableOpacity>
             ))
@@ -258,7 +320,7 @@ const Ecommerce: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Virtual Number Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -288,6 +350,45 @@ const Ecommerce: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.modalButton, styles.confirmButton]}
                   onPress={handleConfirmDelete}
+                >
+                  <Text style={styles.confirmButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Message Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={messageDeleteModalVisible}
+        onRequestClose={handleCancelMessageDelete}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Delete</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to delete this message?
+            </Text>
+            {messageDeleteLoading ? (
+              <ActivityIndicator
+                size="large"
+                color="#FF3B30"
+                style={styles.loadingIndicator}
+              />
+            ) : (
+              <View style={styles.modalButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={handleCancelMessageDelete}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={handleConfirmMessageDelete}
                 >
                   <Text style={styles.confirmButtonText}>Delete</Text>
                 </TouchableOpacity>
@@ -423,7 +524,6 @@ const styles = StyleSheet.create({
   notificationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
     backgroundColor: "#FFEBEE",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -443,6 +543,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 8,
+    position: "relative",
+  },
+  messageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   senderText: {
     fontSize: 12,
@@ -458,16 +564,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "500",
     color: "#333",
-  },
-  urlText: {
-    fontSize: 14,
-    color: "#1c9b7c",
-    marginBottom: 4,
-  },
-  offerText: {
-    fontSize: 14,
-    color: "#FF3B30",
-    fontWeight: "500",
   },
   modalOverlay: {
     flex: 1,
@@ -540,6 +636,13 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 20,
   },
+  deleteButton: {
+    padding: 8,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 1,
+  },
 });
 
-export default Ecommerce;
+export default SocialMedia;

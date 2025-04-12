@@ -59,9 +59,6 @@ class DeletedVirtualNumber(models.Model):
         return f"{self.number}-{self.category}"
     
     
-    
-    
-    
 class Message(models.Model):
     CATEGORY_CHOICES=[
         ('social-media', 'Social Media'),
