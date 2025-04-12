@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny
 import random
 from django.utils import timezone
 
+
 #! ALGO TO GENERATE RANDOM NUMBER
 st = random.randint(6, 9)
 G = {
@@ -125,18 +126,19 @@ def delete_virtual_number(requset,virtual_number_id):
         
 
 
-#! GETING OTP FROM EXTERNAL WEBSITES (USE CASES)
+#! GETING MESSAGE FROM EXTERNAL WEBSITES (USE CASES)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def receive_message(request):
+    virtual_number=request.GET.get('virtual_number')
     sender_name = request.GET.get('sender_name')
-    otp = request.GET.get('message')
+    msg = request.GET.get('message')
     
-    if not otp or not sender_name:
+    if not msg or not sender_name:
         return Response({"message": "Both message and sender name are required"}, 
                         status=status.HTTP_400_BAD_REQUEST)
 
-    result = forward_message(sender_name, otp)
+    result = forward_message(virtual_number,sender_name, msg)
     
     if result.get('success'):
         return Response({
@@ -168,58 +170,102 @@ SENDER_CATEGORIES = {
     'friend': 'personal',
 }
 
-#! SENDING THE RECEIVED OTP TO THE FRONT END 
-def forward_message(sender_name,msg):
-    category=SENDER_CATEGORIES.get(sender_name.lower())
 
-    if not category:
-                return {
-            'success': False, 
-            'message': f"Unknown sender: {sender_name}"
-        }
-    
+
+#! SAVING IT IN DATABASE 
+def forward_message(virtual_number,sender_name,msg):
     try:
-        virtual_numbers=VirtualNumber.objects.filter(category=category,is_active=True)
-
-        if not virtual_numbers.exists():
-                        return {
-                'success': False,
-                'message': f"No active virtual numbers found for category: {category}"
+        virtual_number_obj = VirtualNumber.objects.get(numbers=virtual_number)
+        
+        category = SENDER_CATEGORIES.get(sender_name.lower())
+        
+        if not category:
+            return {
+                'success': False, 
+                'message': f"Unknown sender: {sender_name}"
             }
-        message_create=[]
-        for virtual_number in virtual_numbers:
-             message=Message.objects.create( 
-                virtual_number=virtual_number,
-                sender=sender_name,
-                message_body=msg,
-                is_read=False,
-                received_at=timezone.now()
-             )
-             message_create.append(str(message))
-
-             return  {
+            
+       
+        if virtual_number_obj.category != category:
+            return {
+                'success': False, 
+                'message': f"Category mismatch: Sender category '{category}' doesn't match virtual number category '{virtual_number_obj.category}'"
+            }
+        
+        message = Message.objects.create(
+            virtual_number=virtual_number_obj,
+            sender=sender_name,
+            message_body=msg,
+            category=category,
+            is_read=False,
+            received_at=timezone.now()
+        )
+        
+        return {
             'success': True,
             'category': category,
-            'virtual_numbers': [vn.numbers for vn in virtual_numbers],
-            'message_body': [
-                 {
-                    'id': msg.id,
-                    'sender': msg.sender,
-                    'recipient': msg.virtual_number.numbers,
-                    'message_body': msg.message_body,
-                    'received_at': msg.received_at
-                 }for msg in message_create
-            ],
-            'messages_created': len(message_create)
+            'virtual_number': virtual_number,
+            'message_details': {
+                'id': message.id,
+                'sender': message.sender,
+                'category': message.category,
+                'recipient': message.virtual_number.numbers,
+                'message_body': message.message_body,
+                'received_at': message.received_at
+            }
         }
     
+    except VirtualNumber.DoesNotExist:
+        return {
+            'success': False, 
+            'message': f"Virtual number not found: {virtual_number}"
+        }
     except Exception as e:
-          return {
+        return {
             'success': False,
-            'message': f"Error processing OTP: {str(e)}"
+            'message': f"Error processing message: {str(e)}"
         }
-
     
+
+#! SENDING THE MESSAGE TO FRONT-END  
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def forward_message_to_front_end(request):
+     category=request.GET.get('category')
+     if not category:
+          return Response({"error": "Category parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+     virtual_number=VirtualNumber.objects.filter(category=category,is_active=True)
+
+     if not virtual_number.exists():
+          return Response({"error": f"No active virtual numbers found for category: {category}"}, 
+                          status=status.HTTP_404_NOT_FOUND)
+     
+     message=Message.objects.filter(virtual_number__in=virtual_number).order_by('-received_at')
+
+     if not message:
+          return Response({"message": f"No messages found for category: {category}"}, 
+                          status=status.HTTP_404_NOT_FOUND)
+     
+     serializer=MessageSerializer(message,many=True)
+     return Response(serializer.data,status=status.HTTP_200_OK)
+         
+     
+
+#! DELETE MESSAGE     
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def delete_message(request,message_id):
+    try:
+        message=Message.objects.get(id=message_id)
+        message.delete()
+        return Response({'message':'Message deleted successfully'},status=status.HTTP_200_OK)
+    
+    except Message.DoesNotExist:
+        return Response({'message':'Message not found'},status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+
 
 
 
@@ -243,23 +289,29 @@ def forward_message(sender_name,msg):
 #! GET PHYSICAL NUMBER BY VIRTUAL NUMBER
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def get_physical_number_by_virtual_number(request,virtual_number_id):
+def get_physical_number_by_virtual_number(request,virtual_number):
     try:
-        virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
-        physical_number=virtual_number.physical_number
-        serializer=PhysicalNumberSerializer(physical_number)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+        virtual_number=VirtualNumber.objects.get(virtual_number=virtual_number)
+        deleted_virtual_number=DeletedVirtualNumber.objects.get(number=virtual_number)
+        if virtual_number or deleted_virtual_number:
+            physical_number=virtual_number.physical_number
+            serializer=PhysicalNumberSerializer(physical_number)
+            return Response(serializer.data,status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_404_NOT_FOUND)
     
     except VirtualNumber.DoesNotExist:
         return Response(status=status.HTTP_404_BAD_REQUEST)
     
     
+
+
 #! GET VIRTUAL NUMBER BY PHYSICAL NUMBER
 @api_view(["GET"])    
 @permission_classes([AllowAny])    
-def get_virtual_number_by_physical_number(requset,physical_number_id):
+def get_virtual_number_by_physical_number(requset,physical_number):
     try:
-        physical_number=PhysicalNumber.objects.filter(is_active=True).get(id=physical_number_id)
+        physical_number=PhysicalNumber.objects.filter(is_active=True).get(id=physical_number)
         virtual_numbers=VirtualNumber.objects.filter(physical_number=physical_number,is_active=True)
         serializer=VirtualNumberSerializer(virtual_numbers,many=True)
         return Response(serializer.data,status=status.HTTP_200_OK)

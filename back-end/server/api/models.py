@@ -63,7 +63,13 @@ class DeletedVirtualNumber(models.Model):
     
     
 class Message(models.Model):
+    CATEGORY_CHOICES=[
+        ('social-media', 'Social Media'),
+        ('e-commerce', 'E-commerce'),
+        ('personal','Personal')
+    ]
     virtual_number=models.ForeignKey(VirtualNumber,on_delete=models.CASCADE,related_name='messages')
+    category=models.CharField(max_length=20,choices=CATEGORY_CHOICES)
     sender=models.CharField(max_length=100)
     message_body=models.TextField()
     is_read=models.BooleanField(default=False)
@@ -74,5 +80,4 @@ class Message(models.Model):
         ordering=['-created_at']
     
     def __str__(self):
-        return f"From {self.sender_number} to {self.virtual_number.number}"
-    
+        return f"From {self.sender} to {self.virtual_number.numbers}"

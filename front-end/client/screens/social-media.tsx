@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   SafeAreaView,
   StatusBar,
   Modal,
@@ -15,17 +14,17 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../api";
-import data from "../data.json";
 
-// Interface for notification data
-interface Notification {
+// Interface for message data
+interface Message {
   id: number;
+  virtual_number: number;
   sender: string;
-  message: string;
-  timestamp: string;
+  message_body: string;
   category: string;
-  tag: string;
   is_read: boolean;
+  received_at: string;
+  created_at: string;
 }
 
 // Interface for virtual number data
@@ -37,9 +36,9 @@ interface VirtualNumber {
   is_active: boolean;
 }
 
-const SocialMedia: React.FC = () => {
+const Ecommerce: React.FC = () => {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(data);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [totalNotifications, setTotalNotifications] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [currentCategory, setCurrentCategory] = useState("social-media");
@@ -47,6 +46,7 @@ const SocialMedia: React.FC = () => {
   const [virtualNumberId, setVirtualNumberId] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch virtual number based on category
@@ -74,26 +74,40 @@ const SocialMedia: React.FC = () => {
     fetchVirtualNumber();
   }, [currentCategory]);
 
+  // Fetch messages based on category
   useEffect(() => {
-    // Filter notifications for current category
-    const categoryNotifications = notifications.filter(
-      (notif) => notif.category === currentCategory
-    );
-    setTotalNotifications(categoryNotifications.length);
+    const fetchMessages = async () => {
+      setMessagesLoading(true);
+      try {
+        const response = await api.get(`/forward-message/?category=${currentCategory}`);
+        if (response.data) {
+          setMessages(response.data);
+          // For now, we'll set these values to 0 as mentioned
+          setTotalNotifications(0);
+          setUnreadNotifications(0);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        Alert.alert("Error", "Failed to fetch messages");
+      } finally {
+        setMessagesLoading(false);
+      }
+    };
 
-    // Count unread notifications
-    const unreadCount = categoryNotifications.filter(
-      (notif) => !notif.is_read
-    ).length;
-    setUnreadNotifications(unreadCount);
-  }, [notifications, currentCategory]);
+    if (currentCategory) {
+      fetchMessages();
+    }
+  }, [currentCategory]);
 
   const handleNotificationPress = (id: number) => {
-    // Update is_read status to true when notification is clicked
-    const updatedNotifications = notifications.map((notif) =>
-      notif.id === id ? { ...notif, is_read: true } : notif
+    // Update is_read status to true when message is clicked
+    const updatedMessages = messages.map((msg) =>
+      msg.id === id ? { ...msg, is_read: true } : msg
     );
-    setNotifications(updatedNotifications);
+    setMessages(updatedMessages);
+    
+    // Here you would also make an API call to update the is_read status
+    // This would be implemented later
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -135,44 +149,11 @@ const SocialMedia: React.FC = () => {
     }
   };
 
-  // Filter notifications for current category
-  const filteredNotifications = notifications.filter(
-    (notif) => notif.category === currentCategory
-  );
-
   const formatCategoryName = (category: string) => {
     return category
       .split("-")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
-  };
-
-  const renderSocialMediaContent = (item: Notification) => {
-    switch (item.tag) {
-      case "instagram":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>Tap to view activity</Text>
-          </>
-        );
-      case "twitter":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>View profile</Text>
-          </>
-        );
-      case "facebook":
-        return (
-          <>
-            <Text style={styles.messageText}>{item.message}</Text>
-            <Text style={styles.urlText}>See post</Text>
-          </>
-        );
-      default:
-        return <Text style={styles.messageText}>{item.message}</Text>;
-    }
   };
 
   return (
@@ -231,33 +212,49 @@ const SocialMedia: React.FC = () => {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Notifications List */}
+        {/* Messages List */}
         <View style={styles.listContainer}>
-          {filteredNotifications.map((item) => (
-            <TouchableOpacity
-              key={item.id.toString()}
-              style={styles.notificationItem}
-              onPress={() => handleNotificationPress(item.id)}
-            >
-              {!item.is_read && (
-                <View style={styles.notificationContainer}>
-                  <Ionicons name="alert-circle" size={16} color="#FF3B30" />
-                  <Text style={styles.notificationText}>New</Text>
+          {messagesLoading ? (
+            <ActivityIndicator size="large" color="#007AFF" style={styles.loadingIndicator} />
+          ) : messages.length === 0 ? (
+            <Text style={styles.noMessagesText}>No messages found</Text>
+          ) : (
+            messages.map((item) => (
+              <TouchableOpacity
+                key={item.id.toString()}
+                style={styles.notificationItem}
+                onPress={() => handleNotificationPress(item.id)}
+              >
+                {!item.is_read && (
+                  <View style={styles.notificationContainer}>
+                    <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                    <Text style={styles.notificationText}>New</Text>
+                  </View>
+                )}
+                <View style={styles.notificationContent}>
+                  <View style={styles.notificationHeader}>
+                    <Text style={styles.senderText}>
+                      from: {item.sender.toLowerCase()}
+                    </Text>
+                    <Text style={styles.timestampText}>
+                      {formatTimestamp(item.received_at || item.created_at)}
+                    </Text>
+                  </View>
+                  <Text style={styles.messageText}>{item.message_body}</Text>
+                  {item.sender.toLowerCase() === "amazon" && (
+                    <Text style={styles.urlText}>
+                      Shop now • https://amzn.to/summersale
+                    </Text>
+                  )}
+                  {item.sender.toLowerCase() === "amazon" && (
+                    <Text style={styles.offerText}>
+                      Offer valid till Apr 5th!
+                    </Text>
+                  )}
                 </View>
-              )}
-              <View style={styles.notificationContent}>
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.senderText}>
-                    from: {item.sender.toLowerCase()}
-                  </Text>
-                  <Text style={styles.timestampText}>
-                    {formatTimestamp(item.timestamp)}
-                  </Text>
-                </View>
-                {renderSocialMediaContent(item)}
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -303,7 +300,6 @@ const SocialMedia: React.FC = () => {
   );
 };
 
-// Reuse the exact same styles from the Ecommerce component
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -411,6 +407,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 16,
     paddingBottom: 24,
+    minHeight: 100,
   },
   notificationItem: {
     backgroundColor: "#fff",
@@ -466,6 +463,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1c9b7c",
     marginBottom: 4,
+  },
+  offerText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    fontWeight: "500",
   },
   modalOverlay: {
     flex: 1,
@@ -532,6 +534,12 @@ const styles = StyleSheet.create({
   loadingIndicator: {
     marginVertical: 20,
   },
+  noMessagesText: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#666",
+    marginTop: 20,
+  },
 });
 
-export default SocialMedia;
+export default Ecommerce;
