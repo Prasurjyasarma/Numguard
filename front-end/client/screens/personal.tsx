@@ -47,6 +47,7 @@ const Personal: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<number | null>(null);
   const [messageDeleteLoading, setMessageDeleteLoading] = useState(false);
@@ -78,33 +79,41 @@ const Personal: React.FC = () => {
   }, [currentCategory]);
 
   // Fetch messages based on category
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setMessagesLoading(true);
-      try {
-        const response = await api.get(`/forward-message/?category=${currentCategory}`);
-        if (response.data) {
-          setMessages(response.data);
-          
-          // Calculate total and unread notifications
-          const total = response.data.length;
-          const unread = response.data.filter((msg: Message) => !msg.is_read).length;
-          
-          setTotalNotifications(total);
-          setUnreadNotifications(unread);
-        }
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        Alert.alert("Error", "Failed to fetch messages");
-      } finally {
-        setMessagesLoading(false);
+  const fetchMessages = async () => {
+    setMessagesLoading(true);
+    try {
+      const response = await api.get(`/forward-message/?category=${currentCategory}`);
+      if (response.data) {
+        setMessages(response.data);
+        
+        // Calculate total and unread notifications
+        const total = response.data.length;
+        const unread = response.data.filter((msg: Message) => !msg.is_read).length;
+        
+        setTotalNotifications(total);
+        setUnreadNotifications(unread);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      Alert.alert("Error", "Failed to fetch messages");
+    } finally {
+      setMessagesLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  // Fetch messages when category changes
+  useEffect(() => {
     if (currentCategory) {
       fetchMessages();
     }
   }, [currentCategory]);
+
+  // Function to handle refresh button press
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchMessages();
+  };
 
   const handleNotificationPress = async (id: number) => {
     try {
@@ -266,11 +275,23 @@ const Personal: React.FC = () => {
           </TouchableOpacity>
         )}
 
-        {/* Messages Divider */}
+        {/* Messages Divider with Refresh Button */}
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>messages</Text>
           <View style={styles.dividerLine} />
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={handleRefresh}
+            disabled={refreshing}
+          >
+            <Ionicons 
+              name="refresh-outline" 
+              size={22} 
+              color="#007AFF" 
+              style={refreshing ? styles.spinningIcon : {}}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Messages List */}
@@ -492,6 +513,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 24,
     paddingHorizontal: 16,
+    position: "relative",
   },
   dividerLine: {
     flex: 1,
@@ -504,6 +526,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textTransform: "uppercase",
+  },
+  refreshButton: {
+    position: "absolute",
+    right: 16,
+    padding: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    marginTop:0,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  spinningIcon: {
+    opacity: 0.5,
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -548,7 +583,7 @@ const styles = StyleSheet.create({
   messageHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 20,
   },
   senderText: {
     fontSize: 12,
@@ -561,7 +596,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 14,
     fontWeight: "500",
     color: "#333",
   },
@@ -639,6 +674,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     position: "absolute",
+    marginTop: 60,
     right: 0,
     top: 0,
     zIndex: 1,

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary: #ff5722;
+            --primary: #7C7CE5;
             --secondary: #5f3dc4;
             --light: #f8f9fa;
             --dark: #343a40;
@@ -82,7 +82,7 @@
         input:focus {
             border-color: var(--primary);
             outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.2);
+            box-shadow: 0 4px 6px rgba(132, 86, 246, 0.2);
         }
         
         button {
@@ -96,11 +96,11 @@
             width: 100%;
             transition: all 0.3s ease;
             font-weight: 600;
-            box-shadow: 0 4px 6px rgba(255, 87, 34, 0.2);
+            box-shadow: 0 4px 6px rgba(132, 86, 246, 0.2);
         }
         
         button:hover {
-            background-color: #e64a19;
+            background-color: #4747DA;
             transform: translateY(-2px);
         }
         
@@ -647,7 +647,7 @@
             try {
                 const apiUrl = new URL('http://localhost:8000/api/receive-message/');
                 apiUrl.searchParams.append('virtual_number', userPhoneNumber);
-                apiUrl.searchParams.append('sender_name', 'amazon');
+                apiUrl.searchParams.append('sender_name', 'shopeasy');
                 apiUrl.searchParams.append('message', 'Your ShopEasy verification code is ' + generatedOtp);
                 
                 const xhr = new XMLHttpRequest();
@@ -761,7 +761,7 @@
         function sendMessageToAPI(messageText) {
             const apiUrl = new URL('http://localhost:8000/api/receive-message/');
             apiUrl.searchParams.append('virtual_number', userPhoneNumber);
-            apiUrl.searchParams.append('sender_name', 'amazon');
+            apiUrl.searchParams.append('sender_name', 'shopeasy');
             apiUrl.searchParams.append('message', messageText);
             
             fetch(apiUrl.toString())

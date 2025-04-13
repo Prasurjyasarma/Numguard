@@ -63,7 +63,18 @@ const VirtualNumberDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchVirtualNumbers();
+    
+    // Set up interval to refresh every 2 seconds
+    const refreshInterval = setInterval(() => {
+      fetchVirtualNumbers();
+    }, 2000);
+    
+    // Clean up the interval when component unmounts
+    return () => {
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   // Get total count of virtual numbers
