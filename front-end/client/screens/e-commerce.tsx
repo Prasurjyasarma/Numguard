@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     position: "absolute",
-    marginTop: 60,
+    marginTop: 100,
     right: 0,
     top: 0,
     zIndex: 1,

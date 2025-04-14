@@ -268,6 +268,7 @@ def forward_message_to_front_end(request):
      return Response(serializer.data,status=status.HTTP_200_OK)
 
 
+#! SEEN MESAGE 
 @api_view(['GET'])
 @permission_classes([AllowAny])         
 def read_message(request,message_id):
