@@ -582,8 +582,8 @@ const styles = StyleSheet.create({
   notificationHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
-    position: "relative",
   },
   messageHeader: {
     flexDirection: "row",
@@ -678,10 +678,6 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-    position: "absolute",
-    marginTop: 100,
-    right: 0,
-    top: 0,
     zIndex: 1,
   },
 });

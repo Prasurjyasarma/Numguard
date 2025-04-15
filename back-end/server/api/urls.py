@@ -8,7 +8,8 @@ from .views import (
     receive_message,
     delete_message,
     get_total_notifcation_count,
-    read_message
+    read_message,
+    get_physical_number_by_virtual_number
 )
 
 urlpatterns = [
@@ -24,7 +25,9 @@ urlpatterns = [
     path('delete-message/<int:message_id>/', delete_message, name='delete_message'),
     path('read-message/<int:message_id>/',read_message,name='read_message'),
 
-
     #! Notification
     path('total-notification/',get_total_notifcation_count, name='get_total_notifaction_count'),
+
+    #! Get Physical Number by virtual number
+    path('get-physical-number-by-virtual-number/<str:virtual_number>/',get_physical_number_by_virtual_number, name='get_physical_number_by_virtual_number'),
 ]

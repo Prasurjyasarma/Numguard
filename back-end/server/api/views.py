@@ -122,7 +122,7 @@ def delete_virtual_number(requset,virtual_number_id):
     except VirtualNumber.DoesNotExist:
         return Response({"error": "Virtual number not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_HTTP_INTERNAL_SERVER_ERROR)    
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
         
 
 #! GET TOTAL NOTIFICATION COUNT        
@@ -323,20 +323,28 @@ def delete_message(request,message_id):
 #! GET PHYSICAL NUMBER BY VIRTUAL NUMBER
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def get_physical_number_by_virtual_number(request,virtual_number):
+def get_physical_number_by_virtual_number(request, virtual_number):
     try:
-        virtual_number=VirtualNumber.objects.get(virtual_number=virtual_number)
-        deleted_virtual_number=DeletedVirtualNumber.objects.get(number=virtual_number)
-        if virtual_number or deleted_virtual_number:
-            physical_number=virtual_number.physical_number
-            serializer=PhysicalNumberSerializer(physical_number)
-            return Response(serializer.data,status=status.HTTP_200_OK)
-        else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-    
-    except VirtualNumber.DoesNotExist:
-        return Response(status=status.HTTP_404_BAD_REQUEST)
-    
+        #? in active virtual numbers
+        try:
+            virtual_number_obj = VirtualNumber.objects.get(numbers=virtual_number)
+            physical_number = virtual_number_obj.physical_number
+            serializer = PhysicalNumberSerializer(physical_number)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except VirtualNumber.DoesNotExist:
+
+            #? in deleted virtual numbers 
+            try:
+                deleted_virtual_number = DeletedVirtualNumber.objects.get(number=virtual_number)
+                physical_number = deleted_virtual_number.physical_number
+                serializer = PhysicalNumberSerializer(physical_number)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except DeletedVirtualNumber.DoesNotExist:
+                # If not found in either model, return 404
+                return Response({"error": "Virtual number not found in active or deleted records"}, 
+                               status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 

@@ -5,15 +5,18 @@ import {
   BsKey, 
   BsCheck, 
   BsArrowRight,
-  BsCheckCircle
+  BsCheckCircle,
+  BsExclamationCircle
 } from 'react-icons/bs';
 import { useNavigate } from 'react-router-dom';
+import { useUserContext } from '../../userContext';
 import './LoginPage.css';
 
-
 const LoginPage = () => {
+  // Get context values
+  const { userPhoneNumber, setUserPhoneNumber, setIsVerified } = useUserContext();
+  
   // State variables
-  const [userPhoneNumber, setUserPhoneNumber] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [otp, setOtp] = useState(['', '', '', '']);
   const [currentScreen, setCurrentScreen] = useState('phone');
@@ -55,7 +58,7 @@ const LoginPage = () => {
         clearInterval(otpResendTimerRef.current);
       }
     };
-  }, []);
+  }, [setUserPhoneNumber]);
 
   // Handle OTP resend countdown
   useEffect(() => {
@@ -78,7 +81,6 @@ const LoginPage = () => {
   useEffect(() => {
     if (navigating) {
       const redirectTimer = setTimeout(() => {
-        console.log("Navigating to home page...");
         navigate('/home');
       }, 2000);
       
@@ -95,9 +97,11 @@ const LoginPage = () => {
   const showMessage = (setter, text, isError = false) => {
     setter({ text, isError, show: true });
     
-    setTimeout(() => {
-      setter(prev => ({ ...prev, show: false }));
-    }, 5000);
+    if (!isError) {
+      setTimeout(() => {
+        setter(prev => ({ ...prev, show: false }));
+      }, 5000);
+    }
   };
 
   // Start resend timer
@@ -111,7 +115,6 @@ const LoginPage = () => {
     newOtp[index] = value.replace(/[^0-9]/g, '');
     setOtp(newOtp);
     
-    // Auto focus to next input
     if (value && index < 3) {
       switch(index) {
         case 0: otp2Ref.current.focus(); break;
@@ -150,24 +153,28 @@ const LoginPage = () => {
   const handleSendOtp = async (e) => {
     e.preventDefault();
     
+    setPhoneMessage(prev => ({ ...prev, show: false }));
+    
     if (!userPhoneNumber.trim()) {
       showMessage(setPhoneMessage, 'Please enter your phone number', true);
       return;
     }
 
-    // Generate OTP
+    if (!/^\d{10}$/.test(userPhoneNumber)) {
+      showMessage(setPhoneMessage, 'Please enter a valid 10-digit phone number', true);
+      return;
+    }
+
     const newOtp = generateOTP();
     setGeneratedOtp(newOtp);
     console.log("Generated OTP for testing:", newOtp);
     
-    // Store values in session storage
     sessionStorage.setItem('generatedOtp', newOtp);
     sessionStorage.setItem('userPhoneNumber', userPhoneNumber);
     
     setLoading(true);
     
     if (fallbackMode) {
-      // Use client-side OTP in fallback mode
       setTimeout(() => {
         setLoading(false);
         setCurrentScreen('otp');
@@ -176,7 +183,6 @@ const LoginPage = () => {
       return;
     }
     
-    // Try sending via API
     try {
       const apiUrl = new URL('http://localhost:8000/api/receive-message/');
       apiUrl.searchParams.append('virtual_number', userPhoneNumber);
@@ -195,18 +201,23 @@ const LoginPage = () => {
         sessionStorage.setItem('currentScreen', 'otp');
       } else {
         if (response.status === 400) {
-          showMessage(setPhoneMessage, 'Invalid number. Please check and try again.', true);
+          showMessage(setPhoneMessage, 'Invalid phone number. This number is not registered in our system.', true);
         } else {
           handleApiError();
         }
       }
     } catch (error) {
       setLoading(false);
-      handleApiError();
+      
+      if (error.name === 'AbortError') {
+        showMessage(setPhoneMessage, 'Request timed out. Please try again.', true);
+      } else {
+        handleApiError();
+      }
     }
   };
 
-  // Handle API errors by switching to fallback mode
+  // Handle API errors
   const handleApiError = () => {
     setFallbackMode(true);
     showMessage(setPhoneMessage, 'API connection failed. Using local OTP mode.', true);
@@ -220,12 +231,12 @@ const LoginPage = () => {
   const handleResendOtp = async (e) => {
     e.preventDefault();
     
-    // Generate new OTP
+    setOtpMessage(prev => ({ ...prev, show: false }));
+    
     const newOtp = generateOTP();
     setGeneratedOtp(newOtp);
     console.log("Resent OTP for testing:", newOtp);
     
-    // Store in session storage
     sessionStorage.setItem('generatedOtp', newOtp);
     
     setLoading(true);
@@ -239,17 +250,13 @@ const LoginPage = () => {
       return;
     }
     
-    // Try sending via API
     try {
       const apiUrl = new URL('http://localhost:8000/api/receive-message/');
       apiUrl.searchParams.append('virtual_number', userPhoneNumber);
       apiUrl.searchParams.append('sender_name', 'shopeasy');
       apiUrl.searchParams.append('message', 'Your ShopEasy verification code is ' + newOtp);
       
-      const response = await fetch(apiUrl.toString(), {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000)
-      });
+      const response = await fetch(apiUrl.toString());
       
       setLoading(false);
       
@@ -258,14 +265,19 @@ const LoginPage = () => {
         startResendTimer();
       } else {
         if (response.status === 400) {
-          showMessage(setOtpMessage, 'Failed to resend. Invalid number.', true);
+          showMessage(setOtpMessage, 'Invalid phone number. This number is not registered in our system.', true);
         } else {
           showMessage(setOtpMessage, 'Failed to resend OTP. Using previous code.', true);
         }
       }
     } catch (error) {
       setLoading(false);
-      showMessage(setOtpMessage, 'Network error. Using previous code.', true);
+      
+      if (error.name === 'AbortError') {
+        showMessage(setOtpMessage, 'Request timed out. Please try again.', true);
+      } else {
+        showMessage(setOtpMessage, 'Network error. Using previous code.', true);
+      }
     }
   };
 
@@ -273,7 +285,8 @@ const LoginPage = () => {
   const handleVerifyOtp = (e) => {
     e.preventDefault();
     
-    // Combine OTP digits
+    setOtpMessage(prev => ({ ...prev, show: false }));
+    
     const enteredOtp = otp.join('');
     
     if (enteredOtp.length !== 4) {
@@ -281,42 +294,43 @@ const LoginPage = () => {
       return;
     }
 
-    console.log("Entered OTP:", enteredOtp);
-    console.log("Generated OTP:", generatedOtp);
-
     if (enteredOtp === generatedOtp) {
       setLoading(true);
       showMessage(setOtpMessage, 'OTP verified successfully');
       
-      // Store verification status
+      // Update context verification status
+      setIsVerified(true);
       sessionStorage.setItem('isVerified', 'true');
       
-      // Show success screen
       setTimeout(() => {
         setLoading(false);
         setCurrentScreen('success');
         sessionStorage.setItem('currentScreen', 'success');
-        
-        // Set navigating to true which will trigger navigation via useEffect
         setNavigating(true);
-        console.log("Verification successful! Preparing to navigate to Home page...");
       }, 1000);
     } else {
       showMessage(setOtpMessage, 'Incorrect OTP. Please try again.', true);
-      // Clear inputs for retry
       setOtp(['', '', '', '']);
       otp1Ref.current.focus();
     }
   };
 
-  // Handle phone input key press (Enter key)
+  // Handle phone number change
+  const handlePhoneChange = (e) => {
+    setUserPhoneNumber(e.target.value);
+    if (phoneMessage.show) {
+      setPhoneMessage(prev => ({ ...prev, show: false }));
+    }
+  };
+
+  // Handle phone input key press
   const handlePhoneKeyPress = (e) => {
     if (e.key === 'Enter') {
       handleSendOtp(e);
     }
   };
 
-  // Calculate progress bar width based on current screen
+  // Calculate progress bar width
   const getProgressWidth = () => {
     switch(currentScreen) {
       case 'phone': return '33%';
@@ -330,15 +344,15 @@ const LoginPage = () => {
     <div className="container">
       {/* Progress Indicator */}
       <div className="steps">
-        <div className={`step ${currentScreen === 'phone' ? 'active' : ''} ${currentScreen === 'otp' || currentScreen === 'success' ? 'completed' : ''}`} id="stepPhone">
+        <div className={`step ${currentScreen === 'phone' ? 'active' : ''} ${currentScreen === 'otp' || currentScreen === 'success' ? 'completed' : ''}`}>
           <div className="step-icon"><BsTelephone /></div>
           <div className="step-label">Phone</div>
         </div>
-        <div className={`step ${currentScreen === 'otp' ? 'active' : ''} ${currentScreen === 'success' ? 'completed' : ''}`} id="stepOTP">
+        <div className={`step ${currentScreen === 'otp' ? 'active' : ''} ${currentScreen === 'success' ? 'completed' : ''}`}>
           <div className="step-icon"><BsKey /></div>
           <div className="step-label">Verify</div>
         </div>
-        <div className={`step ${currentScreen === 'success' ? 'active' : ''}`} id="stepSuccess">
+        <div className={`step ${currentScreen === 'success' ? 'active' : ''}`}>
           <div className="step-icon"><BsCheck /></div>
           <div className="step-label">Done</div>
         </div>
@@ -357,39 +371,70 @@ const LoginPage = () => {
       <div id="phoneScreen" className={`screen ${currentScreen === 'phone' ? 'active' : ''}`}>
         <h1>Welcome to ShopEasy</h1>
         <p>Enter your phone number to continue shopping</p>
+        
+        {phoneMessage.show && (
+          <div className={`message ${phoneMessage.isError ? 'error' : 'success'} visible`}>
+            <div className="message-content">
+              {phoneMessage.isError && <BsExclamationCircle className="message-icon" />}
+              {!phoneMessage.isError && <BsCheckCircle className="message-icon" />}
+              <span>{phoneMessage.text}</span>
+            </div>
+            {phoneMessage.isError && (
+              <button 
+                className="message-close" 
+                onClick={() => setPhoneMessage(prev => ({ ...prev, show: false }))}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
+        
         <div className="input-group">
           <BsTelephone />
           <input 
             type="tel" 
-            id="phoneNumber" 
             placeholder="Your phone number" 
             required
             value={userPhoneNumber}
-            onChange={(e) => setUserPhoneNumber(e.target.value)}
+            onChange={handlePhoneChange}
             onKeyPress={handlePhoneKeyPress}
+            className={phoneMessage.isError && phoneMessage.show ? 'input-error' : ''}
           />
         </div>
         <button id="sendOtpBtn" onClick={handleSendOtp}>
           Continue <BsArrowRight />
         </button>
-        {phoneMessage.show && (
-          <div className={`message ${phoneMessage.isError ? 'error' : 'success'}`} id="phoneMessage">
-            {phoneMessage.text}
-          </div>
-        )}
       </div>
 
       {/* OTP Verification Screen */}
       <div id="otpScreen" className={`screen ${currentScreen === 'otp' ? 'active' : ''}`}>
         <h1>Verify Your Number</h1>
-        <p>We've sent an OTP to <span id="displayPhone" style={{ fontWeight: '600' }}>{userPhoneNumber}</span></p>
+        <p>We've sent an OTP to <span style={{ fontWeight: '600' }}>{userPhoneNumber}</span></p>
+        
+        {otpMessage.show && (
+          <div className={`message ${otpMessage.isError ? 'error' : 'success'} visible`}>
+            <div className="message-content">
+              {otpMessage.isError && <BsExclamationCircle className="message-icon" />}
+              {!otpMessage.isError && <BsCheckCircle className="message-icon" />}
+              <span>{otpMessage.text}</span>
+            </div>
+            {otpMessage.isError && (
+              <button 
+                className="message-close" 
+                onClick={() => setOtpMessage(prev => ({ ...prev, show: false }))}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
         
         <div className="otp-inputs">
           <input 
             type="text" 
             maxLength="1" 
-            id="otp1" 
-            className="otp-input" 
+            className={`otp-input ${otpMessage.isError && otpMessage.show ? 'input-error' : ''}`} 
             ref={otp1Ref}
             value={otp[0]}
             onChange={(e) => handleOtpChange(0, e.target.value)}
@@ -400,8 +445,7 @@ const LoginPage = () => {
           <input 
             type="text" 
             maxLength="1" 
-            id="otp2" 
-            className="otp-input" 
+            className={`otp-input ${otpMessage.isError && otpMessage.show ? 'input-error' : ''}`} 
             ref={otp2Ref}
             value={otp[1]}
             onChange={(e) => handleOtpChange(1, e.target.value)}
@@ -410,8 +454,7 @@ const LoginPage = () => {
           <input 
             type="text" 
             maxLength="1" 
-            id="otp3" 
-            className="otp-input" 
+            className={`otp-input ${otpMessage.isError && otpMessage.show ? 'input-error' : ''}`} 
             ref={otp3Ref}
             value={otp[2]}
             onChange={(e) => handleOtpChange(2, e.target.value)}
@@ -420,8 +463,7 @@ const LoginPage = () => {
           <input 
             type="text" 
             maxLength="1" 
-            id="otp4" 
-            className="otp-input" 
+            className={`otp-input ${otpMessage.isError && otpMessage.show ? 'input-error' : ''}`} 
             ref={otp4Ref}
             value={otp[3]}
             onChange={(e) => handleOtpChange(3, e.target.value)}
@@ -437,15 +479,9 @@ const LoginPage = () => {
           Verify OTP
         </button>
         
-        {otpMessage.show && (
-          <div className={`message ${otpMessage.isError ? 'error' : 'success'}`} id="otpMessage">
-            {otpMessage.text}
-          </div>
-        )}
-        
         {otpResendCountdown > 0 ? (
-          <div className="timer" id="resendTimer">
-            Resend OTP in <span id="countdownTimer">{otpResendCountdown}</span>s
+          <div className="timer">
+            Resend OTP in <span>{otpResendCountdown}</span>s
           </div>
         ) : null}
         
@@ -469,7 +505,7 @@ const LoginPage = () => {
       </div>
 
       {/* Loader */}
-      {loading && <div id="loader" className="loader"></div>}
+      {loading && <div className="loader"></div>}
     </div>
   );
 };
