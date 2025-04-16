@@ -10,12 +10,12 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../api";
 
-// Interface for message data
 interface Message {
   id: number;
   virtual_number: number;
@@ -27,7 +27,6 @@ interface Message {
   created_at: string;
 }
 
-// Interface for virtual number data
 interface VirtualNumber {
   id: number;
   numbers: string;
@@ -44,6 +43,7 @@ const Ecommerce: React.FC = () => {
   const [currentCategory, setCurrentCategory] = useState("e-commerce");
   const [currentVirtualNumber, setCurrentVirtualNumber] = useState("");
   const [virtualNumberId, setVirtualNumberId] = useState<number | null>(null);
+  const [isVirtualNumberActive, setIsVirtualNumberActive] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(true);
@@ -52,11 +52,13 @@ const Ecommerce: React.FC = () => {
   const [messageToDelete, setMessageToDelete] = useState<number | null>(null);
   const [messageDeleteLoading, setMessageDeleteLoading] = useState(false);
   const [messageDeleteModalVisible, setMessageDeleteModalVisible] = useState(false);
+  const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
+  const [deactivateLoading, setDeactivateLoading] = useState(false);
+  const [deactivateMessages, setDeactivateMessages] = useState(false);
+  const [deactivateCalls, setDeactivateCalls] = useState(false);
   
-  // Reference for the auto-refresh interval
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch virtual number based on category
   useEffect(() => {
     const fetchVirtualNumber = async () => {
       try {
@@ -67,8 +69,12 @@ const Ecommerce: React.FC = () => {
           const virtualNumberData = response.data[0];
           setCurrentVirtualNumber(virtualNumberData.numbers);
           setVirtualNumberId(virtualNumberData.id);
+          setIsVirtualNumberActive(virtualNumberData.is_active);
+          setDeactivateMessages(virtualNumberData.deactivate_messages || false);
+          setDeactivateCalls(virtualNumberData.deactivate_calls || false);
         } else {
           setCurrentVirtualNumber("No number available");
+          setIsVirtualNumberActive(false);
         }
       } catch (error) {
         console.error("Error fetching virtual number:", error);
@@ -81,24 +87,19 @@ const Ecommerce: React.FC = () => {
     fetchVirtualNumber();
   }, [currentCategory]);
 
-  // Fetch messages based on category
   const fetchMessages = async () => {
     setIsAutoRefreshing(true);
     try {
       const response = await api.get(`/forward-message/?category=${currentCategory}`);
       if (response.data) {
         setMessages(response.data);
-        
-        // Calculate total and unread notifications
         const total = response.data.length;
         const unread = response.data.filter((msg: Message) => !msg.is_read).length;
-        
         setTotalNotifications(total);
         setUnreadNotifications(unread);
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
-      // Don't show alert during auto-refresh to avoid spamming the user
       if (!isAutoRefreshing) {
         Alert.alert("Error", "Failed to fetch messages");
       }
@@ -108,21 +109,17 @@ const Ecommerce: React.FC = () => {
     }
   };
 
-  // Set up auto-refresh interval
   useEffect(() => {
-    // Initial fetch
     if (currentCategory) {
       fetchMessages();
     }
     
-    // Set up interval for auto-refresh every 3 seconds
     autoRefreshIntervalRef.current = setInterval(() => {
       if (currentCategory) {
         fetchMessages();
       }
     }, 3000);
     
-    // Clean up interval on component unmount
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current);
@@ -133,17 +130,12 @@ const Ecommerce: React.FC = () => {
 
   const handleNotificationPress = async (id: number) => {
     try {
-      // Call API to mark message as read
       const response = await api.get(`/read-message/${id}/`);
-      
       if (response.status === 200) {
-        // Update local state to mark message as read
         const updatedMessages = messages.map((msg) =>
           msg.id === id ? { ...msg, is_read: true } : msg
         );
         setMessages(updatedMessages);
-        
-        // Update notification counts
         const updatedUnreadCount = unreadNotifications > 0 ? unreadNotifications - 1 : 0;
         setUnreadNotifications(updatedUnreadCount);
       }
@@ -192,36 +184,29 @@ const Ecommerce: React.FC = () => {
     }
   };
 
-  // Handle message deletion request
   const handleMessageDeleteRequest = (messageId: number) => {
     setMessageToDelete(messageId);
     setMessageDeleteModalVisible(true);
   };
 
-  // Cancel message deletion
   const handleCancelMessageDelete = () => {
     setMessageToDelete(null);
     setMessageDeleteModalVisible(false);
   };
 
-  // Confirm and process message deletion
   const handleConfirmMessageDelete = async () => {
     if (messageToDelete) {
       try {
         setMessageDeleteLoading(true);
         const response = await api.delete(`/delete-message/${messageToDelete}/`);
         if (response.status === 200) {
-          // Remove the deleted message from the state
           const updatedMessages = messages.filter(msg => msg.id !== messageToDelete);
           setMessages(updatedMessages);
-          
-          // Update notification counts
           const wasUnread = messages.find(msg => msg.id === messageToDelete)?.is_read === false;
           setTotalNotifications(prevTotal => prevTotal - 1);
           if (wasUnread) {
             setUnreadNotifications(prevUnread => prevUnread - 1);
           }
-          
           setMessageDeleteModalVisible(false);
           Alert.alert("Success", "Message deleted successfully");
         }
@@ -232,6 +217,43 @@ const Ecommerce: React.FC = () => {
         setMessageDeleteLoading(false);
         setMessageToDelete(null);
       }
+    }
+  };
+
+  const handleDeactivateConfirmation = () => {
+    setDeactivateModalVisible(true);
+  };
+
+  const handleCancelDeactivate = () => {
+    setDeactivateModalVisible(false);
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (virtualNumberId) {
+      try {
+        setDeactivateLoading(true);
+        const response = await api.post(`/deactivate-virtual-number/${virtualNumberId}/`, {
+          deactivate_messages: deactivateMessages,
+          deactivate_calls: deactivateCalls,
+        });
+        
+        if (response.status === 200) {
+          setIsVirtualNumberActive(!isVirtualNumberActive);
+          setDeactivateModalVisible(false);
+          const statusMessage = isVirtualNumberActive ? 
+            "Virtual number deactivated successfully" : 
+            "Virtual number activated successfully";
+          Alert.alert("Success", statusMessage);
+        }
+      } catch (error) {
+        console.error("Error toggling virtual number status:", error);
+        Alert.alert("Error", "Failed to update virtual number status");
+      } finally {
+        setDeactivateLoading(false);
+      }
+    } else {
+      Alert.alert("Error", "No virtual number to update");
+      setDeactivateModalVisible(false);
     }
   };
 
@@ -246,7 +268,6 @@ const Ecommerce: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <ScrollView style={styles.scrollContainer}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -267,7 +288,6 @@ const Ecommerce: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Card */}
         <View style={styles.summaryCard}>
           <View style={styles.statsRow}>
             <View style={styles.statsBox}>
@@ -281,17 +301,50 @@ const Ecommerce: React.FC = () => {
           </View>
         </View>
 
-        {/* Delete Button */}
         {virtualNumberId && (
-          <TouchableOpacity
-            style={styles.requestButton}
-            onPress={handleDeleteConfirmation}
-          >
-            <Text style={styles.requestText}>delete number</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteConfirmation}
+            >
+              <Text style={styles.buttonText}>delete number</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.deactivateButton, 
+                isVirtualNumberActive ? { backgroundColor: "#FFA500" } : { backgroundColor: "#4CAF50" }
+              ]}
+              onPress={handleDeactivateConfirmation}
+            >
+              <Text style={styles.buttonText}>
+                {isVirtualNumberActive ? "deactivate" : "activate"}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.togglesContainer}>
+              <View style={styles.toggleItem}>
+                <Text style={styles.toggleLabel}>Deactivate Messages</Text>
+                <Switch
+                  value={deactivateMessages}
+                  onValueChange={setDeactivateMessages}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={deactivateMessages ? "#f5dd4b" : "#f4f3f4"}
+                />
+              </View>
+              <View style={styles.toggleItem}>
+                <Text style={styles.toggleLabel}>Deactivate Calls</Text>
+                <Switch
+                  value={deactivateCalls}
+                  onValueChange={setDeactivateCalls}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={deactivateCalls ? "#f5dd4b" : "#f4f3f4"}
+                />
+              </View>
+            </View>
+          </View>
         )}
 
-        {/* Messages Divider with Auto-refresh Indicator */}
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>messages</Text>
@@ -303,7 +356,6 @@ const Ecommerce: React.FC = () => {
           )}
         </View>
 
-        {/* Messages List */}
         <View style={styles.listContainer}>
           {messagesLoading ? (
             <ActivityIndicator size="large" color="#007AFF" style={styles.loadingIndicator} />
@@ -324,7 +376,7 @@ const Ecommerce: React.FC = () => {
                     </View>
                   )}
                   <TouchableOpacity 
-                    style={styles.deleteButton}
+                    style={styles.deleteMessageButton}
                     onPress={(e) => {
                       e.stopPropagation();
                       handleMessageDeleteRequest(item.id);
@@ -350,7 +402,7 @@ const Ecommerce: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Delete Virtual Number Confirmation Modal */}
+      {/* Delete Number Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -361,6 +413,7 @@ const Ecommerce: React.FC = () => {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Confirm Delete</Text>
             <Text style={styles.modalMessage}>
+              NOTE: THIS ACTION WILL TAKE 24 HOURS TO REFLECT
               Are you sure you want to delete this virtual number?
             </Text>
             {deleteLoading ? (
@@ -389,7 +442,61 @@ const Ecommerce: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Delete Message Confirmation Modal */}
+      {/* Deactivate/Activate Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deactivateModalVisible}
+        onRequestClose={handleCancelDeactivate}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>
+              {isVirtualNumberActive ? "Confirm Deactivate" : "Confirm Activate"}
+            </Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to {isVirtualNumberActive ? "deactivate" : "activate"} this virtual number?
+            </Text>
+            <View style={styles.deactivateOptions}>
+              <View style={styles.deactivateOption}>
+                <Text style={styles.deactivateOptionText}>Deactivate Messages: {deactivateMessages ? "Yes" : "No"}</Text>
+              </View>
+              <View style={styles.deactivateOption}>
+                <Text style={styles.deactivateOptionText}>Deactivate Calls: {deactivateCalls ? "Yes" : "No"}</Text>
+              </View>
+            </View>
+            {deactivateLoading ? (
+              <ActivityIndicator
+                size="large"
+                color={isVirtualNumberActive ? "#FF3B30" : "#4CAF50"}
+                style={styles.loadingIndicator}
+              />
+            ) : (
+              <View style={styles.modalButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={handleCancelDeactivate}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton, 
+                    isVirtualNumberActive ? styles.confirmButton : styles.activateButton
+                  ]}
+                  onPress={handleConfirmDeactivate}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {isVirtualNumberActive ? "Deactivate" : "Activate"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Message Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -434,7 +541,7 @@ const Ecommerce: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
   },
   scrollContainer: {
     flex: 1,
@@ -442,43 +549,42 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+    justifyContent: "space-between",
+    padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#e9ecef",
   },
   backButton: {
-    padding: 8,
+    padding: 4,
   },
   headerTitleContainer: {
     flex: 1,
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#333",
+    color: "#212529",
   },
   headerNumber: {
     fontSize: 14,
-    color: "#666",
+    color: "#6c757d",
     marginTop: 4,
   },
   helpButton: {
-    padding: 8,
+    padding: 4,
   },
   summaryCard: {
     backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
+    margin: 16,
+    borderRadius: 12,
     padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   statsRow: {
     flexDirection: "row",
@@ -489,33 +595,75 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statsLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#6c757d",
     marginBottom: 4,
   },
   statsValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#333",
+    color: "#212529",
   },
-  requestButton: {
-    backgroundColor: "#FF3B30",
-    marginHorizontal: 100,
+  buttonsContainer: {
+    marginHorizontal: 16,
     marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 25,
+  },
+  deleteButton: {
+    backgroundColor: "#dc3545",
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: "center",
-    shadowColor: "#FF3B30",
+    marginBottom: 12,
+    shadowColor: "#dc3545",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
-  requestText: {
+  deactivateButton: {
+    backgroundColor: "#fd7e14",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#fd7e14",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  togglesContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  toggleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e9ecef",
+  },
+  toggleItemLast: {
+    borderBottomWidth: 0,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    color: "#212529",
+    fontWeight: "500",
   },
   dividerContainer: {
     flexDirection: "row",
@@ -527,14 +675,15 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#e9ecef",
   },
   dividerText: {
     paddingHorizontal: 16,
-    color: "#666",
+    color: "#6c757d",
     fontSize: 14,
     fontWeight: "600",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   refreshIndicator: {
     position: "absolute",
@@ -552,26 +701,26 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 12,
     marginBottom: 12,
-    padding: 18,
+    padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
   },
   notificationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFEBEE",
+    backgroundColor: "#f8d7da",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 4,
     alignSelf: "flex-start",
   },
   notificationText: {
-    color: "#D32F2F",
+    color: "#721c24",
     fontSize: 12,
     marginLeft: 4,
     fontWeight: "500",
@@ -588,22 +737,21 @@ const styles = StyleSheet.create({
   messageHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 12,
   },
   senderText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "500",
-    color: "#666",
+    color: "#6c757d",
   },
   timestampText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#6c757d",
   },
   messageText: {
     fontSize: 16,
-    marginBottom: 14,
-    fontWeight: "500",
-    color: "#333",
+    lineHeight: 24,
+    color: "#212529",
   },
   modalOverlay: {
     flex: 1,
@@ -627,13 +775,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 16,
-    color: "#333",
+    color: "#212529",
   },
   modalMessage: {
     fontSize: 16,
     marginBottom: 24,
     textAlign: "center",
-    color: "#666",
+    color: "#6c757d",
+    lineHeight: 24,
+  },
+  deactivateOptions: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  deactivateOption: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e9ecef",
+  },
+  deactivateOptionText: {
+    fontSize: 16,
+    color: "#212529",
   },
   modalButtonsContainer: {
     flexDirection: "row",
@@ -642,25 +804,29 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     paddingVertical: 12,
-    borderRadius: 25,
+    borderRadius: 8,
     flex: 1,
     marginHorizontal: 8,
     alignItems: "center",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
   cancelButton: {
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "#e9ecef",
     shadowColor: "#000",
   },
   confirmButton: {
-    backgroundColor: "#FF3B30",
-    shadowColor: "#FF3B30",
+    backgroundColor: "#dc3545",
+    shadowColor: "#dc3545",
+  },
+  activateButton: {
+    backgroundColor: "#28a745",
+    shadowColor: "#28a745",
   },
   cancelButtonText: {
-    color: "#333",
+    color: "#212529",
     fontWeight: "600",
   },
   confirmButtonText: {
@@ -673,12 +839,11 @@ const styles = StyleSheet.create({
   noMessagesText: {
     textAlign: "center",
     fontSize: 16,
-    color: "#666",
+    color: "#6c757d",
     marginTop: 20,
   },
-  deleteButton: {
+  deleteMessageButton: {
     padding: 8,
-    zIndex: 1,
   },
 });
 

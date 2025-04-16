@@ -210,11 +210,11 @@ const HomeScreen: React.FC = () => {
 
         <View style={styles.serviceOptions}>
           <ServiceOption
-            title="virtual numbers"
+            title="Virtual numbers"
             onPress={() => router.push("/virtual-number-call")}
           />
-          <ServiceOption title="recharge" onPress={() => {}} />
-          <ServiceOption title="data add ons" onPress={() => {}} />
+          <ServiceOption title="Recharge" onPress={() => {}} />
+          <ServiceOption title="Data add ons" onPress={() => {}} />
           <ServiceOption title="SMS packs" onPress={() => {}} />
         </View>
       </ScrollView>
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   deactivateButton: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: "#dc3545",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   detailsButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#28A745",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,

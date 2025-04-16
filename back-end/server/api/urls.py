@@ -9,7 +9,8 @@ from .views import (
     delete_message,
     get_total_notifcation_count,
     read_message,
-    get_physical_number_by_virtual_number
+    get_physical_number_by_virtual_number,
+    deactivate_virtual_number
 )
 
 urlpatterns = [
@@ -18,6 +19,7 @@ urlpatterns = [
     path('create-virtual-number/', create_virtual_number, name='create_virtual_number'),
     path('virtual-numbers/', view_virtual_numbers, name='view_virtual_numbers'),
     path('delete-virtual-number/<int:virtual_number_id>/', delete_virtual_number, name='delete_virtual_number'),
+    path('deactivate-virtual-number/<int:virtual_number_id>/',deactivate_virtual_number,name='deactivate_virtual_number'),
 
     #! Message Handling
     path('forward-message/', forward_message_to_front_end, name='forward_message_to_front_end'),

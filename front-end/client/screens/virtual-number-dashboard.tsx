@@ -30,15 +30,11 @@ const VirtualNumberDashboard: React.FC = () => {
   const router = useRouter();
   const [virtualNumbers, setVirtualNumbers] = useState<VirtualNumber[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [locationModalVisible, setLocationModalVisible] =
-    useState<boolean>(false);
-  const [categoryModalVisible, setCategoryModalVisible] =
-    useState<boolean>(false);
+  const [locationModalVisible, setLocationModalVisible] = useState<boolean>(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState<boolean>(false);
   const [infoModalVisible, setInfoModalVisible] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [processingSteps, setProcessingSteps] = useState<{
-    [key: string]: boolean;
-  }>({
+  const [processingSteps, setProcessingSteps] = useState<{ [key: string]: boolean }>({
     sendingRequest: false,
     backendValidation: false,
     sendingPhysical: false,
@@ -63,27 +59,18 @@ const VirtualNumberDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchVirtualNumbers();
-    
-    // Set up interval to refresh every 2 seconds
     const refreshInterval = setInterval(() => {
       fetchVirtualNumbers();
     }, 2000);
-    
-    // Clean up the interval when component unmounts
     return () => {
       clearInterval(refreshInterval);
     };
   }, []);
 
-  // Get total count of virtual numbers
   const totalCount = virtualNumbers.length;
-
-  // Count available numbers (assuming 3 is max now)
   const availableCount = totalCount >= 3 ? 0 : 3 - totalCount;
 
-  // Filter numbers by category
   const getNumbersByCategory = (category: string) => {
     return virtualNumbers.filter((num) => num.category === category);
   };
@@ -92,7 +79,6 @@ const VirtualNumberDashboard: React.FC = () => {
   const socialMediaNumbers = getNumbersByCategory("social-media");
   const personalNumbers = getNumbersByCategory("personal");
 
-  // Get unread count by category
   const getUnreadCount = (category: string): number => {
     const numbers = virtualNumbers.filter((num) => num.category === category);
     return numbers.reduce((total, num) => total + num.unread_count, 0);
@@ -102,11 +88,8 @@ const VirtualNumberDashboard: React.FC = () => {
   const socialMediaUnreadCount = getUnreadCount("social-media");
   const personalUnreadCount = getUnreadCount("personal");
 
-  // Get available categories (categories not already used)
   const getAvailableCategories = () => {
-    const usedCategories = virtualNumbers.map((num) =>
-      num.category.toLowerCase()
-    );
+    const usedCategories = virtualNumbers.map((num) => num.category.toLowerCase());
     return ["e-commerce", "social-media", "personal"].filter(
       (category) => !usedCategories.includes(category.toLowerCase())
     );
@@ -120,16 +103,13 @@ const VirtualNumberDashboard: React.FC = () => {
   };
 
   const handleRequestPress = () => {
-    // Show location detection modal
     setLocationModalVisible(true);
     setLocationDetected(false);
-    // Simulate location detection (2 seconds)
     setTimeout(() => {
       setLocationDetected(true);
       setTimeout(() => {
         setLocationModalVisible(false);
         setCategoryModalVisible(true);
-        // Set default selected category if available
         if (availableCategories.length > 0) {
           setSelectedCategory(availableCategories[0]);
         }
@@ -146,7 +126,6 @@ const VirtualNumberDashboard: React.FC = () => {
     setCategoryModalVisible(false);
     setInfoModalVisible(true);
 
-    // Simulate processing steps with delays
     const simulateProcessing = async () => {
       const steps = Object.keys(processingSteps);
       for (let i = 0; i < steps.length; i++) {
@@ -154,17 +133,15 @@ const VirtualNumberDashboard: React.FC = () => {
         setProcessingSteps((prev) => ({ ...prev, [steps[i]]: true }));
       }
 
-      // After all steps are done, create the virtual number
       try {
         await api.post("/create-virtual-number/", {
-          geo_code: "IN", // Hardcoded to India as per requirements
+          geo_code: "IN",
           category: selectedCategory,
         });
 
-        // Wait 1.5 seconds before refreshing and closing the modal
         setTimeout(() => {
           setInfoModalVisible(false);
-          fetchVirtualNumbers(); // Refresh the numbers list
+          fetchVirtualNumbers();
           setProcessingSteps({
             sendingRequest: false,
             backendValidation: false,
@@ -194,6 +171,50 @@ const VirtualNumberDashboard: React.FC = () => {
       .join(" ");
   };
 
+  const renderNumberContent = (numbers: VirtualNumber[]) => {
+    if (numbers.length === 0) {
+      return <Text style={styles.noNumberText}>No active virtual number</Text>;
+    }
+
+    const number = numbers[0];
+    
+    return (
+      <>
+        <View style={styles.tagContainer}>
+          <Text style={styles.summaryTag}>{number.category.toUpperCase()}</Text>
+        </View>
+        <View style={styles.numberRow}>
+          <TouchableOpacity
+            onPress={() => copyToClipboard(number.numbers)}
+            style={[
+              styles.copyableNumber,
+              !number.is_active && styles.inactiveNumber,
+            ]}
+          >
+            <Text 
+              style={[
+                styles.summaryNumber,
+                !number.is_active && styles.inactiveNumberText,
+              ]}
+            >
+              {number.numbers}
+            </Text>
+            <Ionicons
+              name="copy-outline"
+              size={14}
+              color={number.is_active ? "#666" : "#aaa"}
+              style={styles.copyIcon}
+            />
+          </TouchableOpacity>
+          {!number.is_active && (
+            <View style={styles.inactiveStatusContainer}>
+            </View>
+          )}
+        </View>
+      </>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollContainer}>
@@ -211,91 +232,29 @@ const VirtualNumberDashboard: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Summary Cards  */}
+        {/* Summary Cards */}
         <View style={styles.summaryCard}>
           {/* Top row: E-commerce and Social Media */}
           <View style={styles.summaryRow}>
             {/* E-commerce box */}
-            <View style={styles.summaryBoxTop}>
-              {ecommerceNumbers.length > 0 && (
-                <>
-                  <View style={styles.tagContainer}>
-                    <Text style={styles.summaryTag}>E-COMMERCE</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => copyToClipboard(ecommerceNumbers[0].numbers)}
-                    style={styles.copyableNumber}
-                  >
-                    <Text style={styles.summaryNumber}>
-                      {ecommerceNumbers[0].numbers}
-                    </Text>
-                    <Ionicons
-                      name="copy-outline"
-                      size={14}
-                      color="#666"
-                      style={styles.copyIcon}
-                    />
-                  </TouchableOpacity>
-                </>
-              )}
+            <View style={styles.summaryBox}>
+              {renderNumberContent(ecommerceNumbers)}
             </View>
 
             {/* Social media box */}
-            <View style={styles.summaryBoxTop}>
-              {socialMediaNumbers.length > 0 && (
-                <>
-                  <View style={styles.tagContainer}>
-                    <Text style={styles.summaryTag}>SOCIAL-MEDIA</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      copyToClipboard(socialMediaNumbers[0].numbers)
-                    }
-                    style={styles.copyableNumber}
-                  >
-                    <Text style={styles.summaryNumber}>
-                      {socialMediaNumbers[0].numbers}
-                    </Text>
-                    <Ionicons
-                      name="copy-outline"
-                      size={14}
-                      color="#666"
-                      style={styles.copyIcon}
-                    />
-                  </TouchableOpacity>
-                </>
-              )}
+            <View style={styles.summaryBox}>
+              {renderNumberContent(socialMediaNumbers)}
             </View>
           </View>
 
           {/* Bottom row: Personal */}
           <View style={styles.summaryRow}>
-            <View style={styles.summaryBoxBottom}>
-              {personalNumbers.length > 0 && (
-                <>
-                  <View style={styles.tagContainer}>
-                    <Text style={styles.summaryTag}>PERSONAL</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => copyToClipboard(personalNumbers[0].numbers)}
-                    style={styles.copyableNumber}
-                  >
-                    <Text style={styles.summaryNumber}>
-                      {personalNumbers[0].numbers}
-                    </Text>
-                    <Ionicons
-                      name="copy-outline"
-                      size={14}
-                      color="#666"
-                      style={styles.copyIcon}
-                    />
-                  </TouchableOpacity>
-                </>
-              )}
+            <View style={[styles.summaryBox, styles.fullWidthBox]}>
+              {renderNumberContent(personalNumbers)}
             </View>
           </View>
 
-          {/* Summary statistics - Can be included if needed */}
+          {/* Summary statistics */}
           <View style={styles.statsRow}>
             <View style={styles.statsBox}>
               <Text style={styles.statsLabel}>Total virtual numbers</Text>
@@ -308,31 +267,70 @@ const VirtualNumberDashboard: React.FC = () => {
           </View>
         </View>
 
-        {/* Request Button - Show only if available numbers > 0 */}
+        {/* Request Button */}
         {availableCount > 0 && (
-          <TouchableOpacity
-            style={styles.requestButton}
-            onPress={handleRequestPress}
-          >
-            <Text style={styles.requestText}>request</Text>
-          </TouchableOpacity>
+          <View style={styles.requestButtonContainer}>
+            <TouchableOpacity
+              style={styles.requestButton}
+              onPress={handleRequestPress}
+            >
+              <Text style={styles.requestText}>Request New Number</Text>
+            </TouchableOpacity>
+            <Text style={styles.activationNote}>
+              Virtual numbers take up to 24 hrs to get activated
+            </Text>
+          </View>
+        )}
+
+        {/* Show message when there are no virtual numbers */}
+        {totalCount === 0 && (
+          <View style={styles.noNumbersContainer}>
+            <Ionicons name="phone-portrait-outline" size={48} color="#ccc" />
+            <Text style={styles.noNumbersText}>No virtual numbers yet</Text>
+            <Text style={styles.noNumbersSubText}>
+              Request a virtual number to get started
+            </Text>
+          </View>
         )}
 
         {/* Manage Divider */}
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>manage</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        {totalCount > 0 && (
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>manage</Text>
+            <View style={styles.dividerLine} />
+          </View>
+        )}
 
-        {/* Dynamic Manage Cards based on API data */}
+        {/* Dynamic Manage Cards */}
         {ecommerceNumbers.map((number) => (
           <TouchableOpacity
             key={number.id}
             onPress={() => router.push("/e-commerce")}
             style={styles.manageCard}
           >
-            <View>
+            <View style={styles.manageContent}>
+              <View style={styles.manageHeader}>
+                <Text style={styles.manageTitle}>
+                  {formatCategoryName(number.category)}
+                </Text>
+                <View style={styles.manageNumberRow}>
+                  <Text 
+                    style={[
+                      styles.manageNumber,
+                      !number.is_active && styles.inactiveManageNumber
+                    ]}
+                  >
+                    {number.numbers}
+                  </Text>
+                  {!number.is_active && (
+                    <View style={styles.manageInactiveStatus}>
+                      <Ionicons name="time-outline" size={14} color="#FF9800" />
+                      <Text style={styles.manageInactiveText}>Not active</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
               {number.unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
@@ -341,10 +339,6 @@ const VirtualNumberDashboard: React.FC = () => {
                   </Text>
                 </View>
               )}
-              <Text style={styles.manageTitle}>
-                {formatCategoryName(number.category)}
-              </Text>
-              <Text style={styles.manageNumber}>({number.numbers})</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
@@ -356,7 +350,28 @@ const VirtualNumberDashboard: React.FC = () => {
             onPress={() => router.push("/social")}
             style={styles.manageCard}
           >
-            <View>
+            <View style={styles.manageContent}>
+              <View style={styles.manageHeader}>
+                <Text style={styles.manageTitle}>
+                  {formatCategoryName(number.category)}
+                </Text>
+                <View style={styles.manageNumberRow}>
+                  <Text 
+                    style={[
+                      styles.manageNumber,
+                      !number.is_active && styles.inactiveManageNumber
+                    ]}
+                  >
+                    {number.numbers}
+                  </Text>
+                  {!number.is_active && (
+                    <View style={styles.manageInactiveStatus}>
+                      <Ionicons name="time-outline" size={14} color="#FF9800" />
+                      <Text style={styles.manageInactiveText}>Not active</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
               {number.unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
@@ -365,10 +380,6 @@ const VirtualNumberDashboard: React.FC = () => {
                   </Text>
                 </View>
               )}
-              <Text style={styles.manageTitle}>
-                {formatCategoryName(number.category)}
-              </Text>
-              <Text style={styles.manageNumber}>({number.numbers})</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
@@ -380,7 +391,28 @@ const VirtualNumberDashboard: React.FC = () => {
             onPress={() => router.push("/personal")}
             style={styles.manageCard}
           >
-            <View>
+            <View style={styles.manageContent}>
+              <View style={styles.manageHeader}>
+                <Text style={styles.manageTitle}>
+                  {formatCategoryName(number.category)}
+                </Text>
+                <View style={styles.manageNumberRow}>
+                  <Text 
+                    style={[
+                      styles.manageNumber,
+                      !number.is_active && styles.inactiveManageNumber
+                    ]}
+                  >
+                    {number.numbers}
+                  </Text>
+                  {!number.is_active && (
+                    <View style={styles.manageInactiveStatus}>
+                      <Ionicons name="time-outline" size={14} color="#FF9800" />
+                      <Text style={styles.manageInactiveText}>Not active</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
               {number.unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
@@ -389,10 +421,6 @@ const VirtualNumberDashboard: React.FC = () => {
                   </Text>
                 </View>
               )}
-              <Text style={styles.manageTitle}>
-                {formatCategoryName(number.category)}
-              </Text>
-              <Text style={styles.manageNumber}>({number.numbers})</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
@@ -503,7 +531,6 @@ const VirtualNumberDashboard: React.FC = () => {
       <Modal animationType="fade" transparent={true} visible={infoModalVisible}>
         <TouchableWithoutFeedback
           onPress={() => {
-            // Don't allow closing during processing
             if (!Object.values(processingSteps).every((step) => step)) {
               return;
             }
@@ -662,122 +689,183 @@ const VirtualNumberDashboard: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
   },
   scrollContainer: {
     flex: 1,
+    backgroundColor: "#f8f9fa",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+    justifyContent: "space-between",
+    padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#e9ecef",
   },
   backButton: {
-    padding: 8,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    flex: 1,
-    textAlign: "center",
-    color: "#333",
+    color: "#212529",
   },
   helpButton: {
-    padding: 8,
+    padding: 4,
   },
   summaryCard: {
     backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
+    margin: 16,
+    borderRadius: 12,
     padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  summaryBoxTop: {
+  summaryBox: {
     width: "48%",
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
+    justifyContent: 'center',
+    minHeight: 100,
   },
-  summaryBoxBottom: {
+  fullWidthBox: {
     width: "100%",
-    alignItems: "center",
   },
   tagContainer: {
     marginBottom: 8,
   },
   summaryTag: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1c9b7c",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1a936f",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  noNumberText: {
+    fontSize: 14,
+    color: "#6c757d",
+    textAlign: 'center',
+  },
+  numberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   copyableNumber: {
     flexDirection: "row",
     alignItems: "center",
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#f8f8f8",
+    backgroundColor: "#e9ecef",
+    marginRight: 8,
+  },
+  inactiveNumber: {
+    backgroundColor: "#f0f0f0",
   },
   summaryNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#212529",
+  },
+  inactiveNumberText: {
+    color: "#6c757d",
   },
   copyIcon: {
     marginLeft: 6,
+  },
+  inactiveStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 4,
+    backgroundColor: "#fff3cd",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+  },
+  inactiveStatusText: {
+    fontSize: 12,
+    color: "#e0a800",
+    marginLeft: 4,
+    fontWeight: "500",
   },
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-    paddingTop: 15,
-    marginTop: 5,
+    borderTopColor: "#e9ecef",
+    paddingTop: 16,
+    marginTop: 8,
   },
   statsBox: {
     flex: 1,
     alignItems: "center",
-    flexDirection: "column",
   },
   statsLabel: {
     fontSize: 12,
-    color: "#666",
+    color: "#6c757d",
     marginBottom: 4,
   },
   statsValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#333",
+    color: "#212529",
+  },
+  requestButtonContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
   },
   requestButton: {
-    backgroundColor: "#4CAF50",
-    marginHorizontal: 100,
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 25,
+    backgroundColor: "#28a745",
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: "center",
-    shadowColor: "#4CAF50",
+    shadowColor: "#28a745",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  activationNote: {
+    fontSize: 12,
+    color: "#6c757d",
+    marginTop: 8,
+    textAlign: 'center',
   },
   requestText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  noNumbersContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 20,
+  },
+  noNumbersText: {
+    fontSize: 18,
+    color: "#212529",
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  noNumbersSubText: {
+    fontSize: 14,
+    color: "#6c757d",
+    marginTop: 8,
+    textAlign: 'center',
   },
   dividerContainer: {
     flexDirection: "row",
@@ -788,30 +876,15 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#e9ecef",
   },
   dividerText: {
     paddingHorizontal: 16,
-    color: "#666",
+    color: "#6c757d",
     fontSize: 14,
     fontWeight: "600",
     textTransform: "uppercase",
-  },
-  notificationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    backgroundColor: "#FFEBEE",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-  },
-  notificationText: {
-    color: "#D32F2F",
-    fontSize: 12,
-    marginLeft: 4,
-    fontWeight: "500",
+    letterSpacing: 0.5,
   },
   manageCard: {
     flexDirection: "row",
@@ -820,146 +893,180 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  manageContent: {
+    flex: 1,
+  },
+  manageHeader: {
+    marginBottom: 8,
   },
   manageTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#222",
+    color: "#212529",
+    marginBottom: 4,
+  },
+  manageNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   manageNumber: {
     fontSize: 14,
-    color: "#666",
-    marginTop: 4,
+    color: "#495057",
   },
-  // Modal styles
+  inactiveManageNumber: {
+    color: "#adb5bd",
+  },
+  manageInactiveStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+    backgroundColor: "#fff3cd",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  manageInactiveText: {
+    fontSize: 12,
+    color: "#e0a800",
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  notificationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8d7da",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  notificationText: {
+    color: "#721c24",
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContainer: {
-    width: "85%",
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    alignItems: "center",
+    width: "85%",
+    maxWidth: 400,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
     elevation: 5,
   },
-  infoModalContainer: {
-    width: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    marginBottom: 20,
-    textAlign: "center",
     color: "#333",
-  },
-  modalButton: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 25,
-    marginTop: 16,
-    width: "100%",
-    alignItems: "center",
-    shadowColor: "#4CAF50",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  disabledButton: {
-    backgroundColor: "#cccccc",
-    shadowColor: "#000",
-    shadowOpacity: 0,
-    elevation: 0,
+    marginBottom: 16,
+    textAlign: "center",
   },
   spinner: {
     marginVertical: 20,
   },
   locationText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
-    marginTop: 8,
-    color: "#333",
+    color: "#4CAF50",
+    textAlign: "center",
+    marginBottom: 8,
   },
   locationSubText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#666",
-    marginTop: 6,
     textAlign: "center",
   },
-  processingSteps: {
-    width: "100%",
-    paddingHorizontal: 10,
-  },
-  processingStep: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
-  },
-  processingText: {
-    fontSize: 14,
-    marginLeft: 12,
-    flex: 1,
-    color: "#555",
-  },
-  // Category button styles
   categoryButtonsContainer: {
-    width: "100%",
-    marginVertical: 15,
+    marginVertical: 20,
   },
   categoryButton: {
-    padding: 16,
-    marginVertical: 8,
     backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#e0e0e0",
   },
   selectedCategoryButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#E8F5E9",
     borderColor: "#4CAF50",
   },
   categoryButtonText: {
     fontSize: 16,
+    color: "#666",
     fontWeight: "500",
-    color: "#333",
+    textAlign: "center",
   },
   selectedCategoryButtonText: {
-    color: "#fff",
+    color: "#4CAF50",
     fontWeight: "600",
+  },
+  modalButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  disabledButton: {
+    backgroundColor: "#CCCCCC",
   },
   noCategoriesContainer: {
     alignItems: "center",
     padding: 20,
   },
   noCategoriesText: {
-    marginTop: 12,
+    fontSize: 14,
     color: "#666",
     textAlign: "center",
-    fontSize: 15,
+    marginTop: 10,
+  },
+  infoModalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 400,
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  processingSteps: {
+    marginTop: 16,
+  },
+  processingStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 14,
+  },
+  processingText: {
+    fontSize: 14,
+    color: "#444",
+    marginLeft: 8,
+    flex: 1,
   },
 });
 
