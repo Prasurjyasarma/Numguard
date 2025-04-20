@@ -11,6 +11,8 @@ import {
   Clipboard,
   Modal,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -45,6 +47,8 @@ const VirtualNumberDashboard: React.FC = () => {
     virtualReady: false,
   });
   const [locationDetected, setLocationDetected] = useState<boolean>(false);
+  const [showInfo, setShowInfo] = useState<boolean>(false);
+  const [infoAnim] = useState(new Animated.Value(0));
 
   const fetchVirtualNumbers = async () => {
     try {
@@ -67,6 +71,25 @@ const VirtualNumberDashboard: React.FC = () => {
       clearInterval(refreshInterval);
     };
   }, []);
+
+  const toggleInfo = () => {
+    if (showInfo) {
+      Animated.timing(infoAnim, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => setShowInfo(false));
+    } else {
+      setShowInfo(true);
+      Animated.timing(infoAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }
+  };
 
   const totalCount = virtualNumbers.length;
   const availableCount = totalCount >= 3 ? 0 : 3 - totalCount;
@@ -171,49 +194,56 @@ const VirtualNumberDashboard: React.FC = () => {
       .join(" ");
   };
 
-  const renderNumberContent = (numbers: VirtualNumber[]) => {
-    if (numbers.length === 0) {
-      return <Text style={styles.noNumberText}>No active virtual number</Text>;
-    }
-
-    const number = numbers[0];
+  const renderNumberContent = (category: string, numbers: VirtualNumber[]) => {
+    const hasNumber = numbers.length > 0;
+    const number = hasNumber ? numbers[0] : null;
     
     return (
       <>
         <View style={styles.tagContainer}>
-          <Text style={styles.summaryTag}>{number.category.toUpperCase()}</Text>
+          <Text style={styles.summaryTag}>{formatCategoryName(category).toUpperCase()}</Text>
         </View>
-        <View style={styles.numberRow}>
-          <TouchableOpacity
-            onPress={() => copyToClipboard(number.numbers)}
-            style={[
-              styles.copyableNumber,
-              !number.is_active && styles.inactiveNumber,
-            ]}
-          >
-            <Text 
+        {hasNumber ? (
+          <View style={styles.numberRow}>
+            <TouchableOpacity
+              onPress={() => copyToClipboard(number!.numbers)}
               style={[
-                styles.summaryNumber,
-                !number.is_active && styles.inactiveNumberText,
+                styles.copyableNumber,
+                !number!.is_active && styles.inactiveNumber,
               ]}
             >
-              {number.numbers}
-            </Text>
-            <Ionicons
-              name="copy-outline"
-              size={14}
-              color={number.is_active ? "#666" : "#aaa"}
-              style={styles.copyIcon}
-            />
-          </TouchableOpacity>
-          {!number.is_active && (
-            <View style={styles.inactiveStatusContainer}>
-            </View>
-          )}
-        </View>
+              <Text 
+                style={[
+                  styles.summaryNumber,
+                  !number!.is_active && styles.inactiveNumberText,
+                ]}
+              >
+                {number!.numbers}
+              </Text>
+              <Ionicons
+                name="copy-outline"
+                size={14}
+                color={number!.is_active ? "#666" : "#aaa"}
+                style={styles.copyIcon}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={styles.noNumberText}>No active virtual number</Text>
+        )}
       </>
     );
   };
+
+  const infoHeight = infoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 180],
+  });
+
+  const infoOpacity = infoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -238,19 +268,19 @@ const VirtualNumberDashboard: React.FC = () => {
           <View style={styles.summaryRow}>
             {/* E-commerce box */}
             <View style={styles.summaryBox}>
-              {renderNumberContent(ecommerceNumbers)}
+              {renderNumberContent("e-commerce", ecommerceNumbers)}
             </View>
 
             {/* Social media box */}
             <View style={styles.summaryBox}>
-              {renderNumberContent(socialMediaNumbers)}
+              {renderNumberContent("social-media", socialMediaNumbers)}
             </View>
           </View>
 
           {/* Bottom row: Personal */}
           <View style={styles.summaryRow}>
             <View style={[styles.summaryBox, styles.fullWidthBox]}>
-              {renderNumberContent(personalNumbers)}
+              {renderNumberContent("personal", personalNumbers)}
             </View>
           </View>
 
@@ -276,9 +306,57 @@ const VirtualNumberDashboard: React.FC = () => {
             >
               <Text style={styles.requestText}>Request New Number</Text>
             </TouchableOpacity>
-            <Text style={styles.activationNote}>
-              Virtual numbers take up to 24 hrs to get activated
-            </Text>
+            
+            <TouchableOpacity
+              style={styles.infoButton}
+              onPress={toggleInfo}
+            >
+              <Text style={styles.infoButtonText}>
+                {showInfo ? 'Hide Info' : 'Info About Virtual Numbers'}
+              </Text>
+              <Ionicons 
+                name={showInfo ? "chevron-up" : "chevron-down"} 
+                size={18} 
+                color="#4CAF50" 
+              />
+            </TouchableOpacity>
+
+            {showInfo && (
+              <Animated.View 
+                style={[
+                  styles.infoCard,
+                  {
+                    height: infoHeight,
+                    opacity: infoOpacity,
+                    transform: [{
+                      translateY: infoAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-20, 0],
+                      }),
+                    }],
+                  }
+                ]}
+              >
+                <View style={styles.infoHeader}>
+                  <Ionicons name="information-circle" size={20} color="#4CAF50" />
+                  <Text style={styles.infoTitle}>About Virtual Numbers</Text>
+                </View>
+                <View style={styles.infoContent}>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="time-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                    <Text style={styles.infoText}>Numbers take up to 24 hours to activate</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                    <Text style={styles.infoText}>Temporary number linked to your real number</Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="lock-closed-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                    <Text style={styles.infoText}>Receive SMS/calls without exposing your personal number</Text>
+                  </View>
+                </View>
+              </Animated.View>
+            )}
           </View>
         )}
 
@@ -293,7 +371,7 @@ const VirtualNumberDashboard: React.FC = () => {
           </View>
         )}
 
-        {/* Manage Divider */}
+        {/* Manage Divider - Only show if there are numbers */}
         {totalCount > 0 && (
           <View style={styles.dividerContainer}>
             <View style={styles.dividerLine} />
@@ -302,28 +380,28 @@ const VirtualNumberDashboard: React.FC = () => {
           </View>
         )}
 
-        {/* Dynamic Manage Cards */}
-        {ecommerceNumbers.map((number) => (
+        {/* Only show manage cards for categories that have numbers */}
+        {ecommerceNumbers.length > 0 && (
           <TouchableOpacity
-            key={number.id}
             onPress={() => router.push("/e-commerce")}
             style={styles.manageCard}
           >
             <View style={styles.manageContent}>
               <View style={styles.manageHeader}>
-                <Text style={styles.manageTitle}>
-                  {formatCategoryName(number.category)}
-                </Text>
+                <View style={styles.categoryTitleRow}>
+                  <Ionicons name="cart-outline" size={20} color="#4CAF50" style={styles.categoryIcon} />
+                  <Text style={styles.manageTitle}>E-commerce</Text>
+                </View>
                 <View style={styles.manageNumberRow}>
                   <Text 
                     style={[
                       styles.manageNumber,
-                      !number.is_active && styles.inactiveManageNumber
+                      !ecommerceNumbers[0].is_active && styles.inactiveManageNumber
                     ]}
                   >
-                    {number.numbers}
+                    {ecommerceNumbers[0].numbers}
                   </Text>
-                  {!number.is_active && (
+                  {!ecommerceNumbers[0].is_active && (
                     <View style={styles.manageInactiveStatus}>
                       <Ionicons name="time-outline" size={14} color="#FF9800" />
                       <Text style={styles.manageInactiveText}>Not active</Text>
@@ -331,40 +409,40 @@ const VirtualNumberDashboard: React.FC = () => {
                   )}
                 </View>
               </View>
-              {number.unread_count > 0 && (
+              {ecommerceNumbers[0].unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
                   <Text style={styles.notificationText}>
-                    {number.unread_count} new notifications
+                    {ecommerceNumbers[0].unread_count} new notifications
                   </Text>
                 </View>
               )}
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
-        ))}
+        )}
 
-        {socialMediaNumbers.map((number) => (
+        {socialMediaNumbers.length > 0 && (
           <TouchableOpacity
-            key={number.id}
             onPress={() => router.push("/social")}
             style={styles.manageCard}
           >
             <View style={styles.manageContent}>
               <View style={styles.manageHeader}>
-                <Text style={styles.manageTitle}>
-                  {formatCategoryName(number.category)}
-                </Text>
+                <View style={styles.categoryTitleRow}>
+                  <Ionicons name="share-social-outline" size={20} color="#2196F3" style={styles.categoryIcon} />
+                  <Text style={styles.manageTitle}>Social Media</Text>
+                </View>
                 <View style={styles.manageNumberRow}>
                   <Text 
                     style={[
                       styles.manageNumber,
-                      !number.is_active && styles.inactiveManageNumber
+                      !socialMediaNumbers[0].is_active && styles.inactiveManageNumber
                     ]}
                   >
-                    {number.numbers}
+                    {socialMediaNumbers[0].numbers}
                   </Text>
-                  {!number.is_active && (
+                  {!socialMediaNumbers[0].is_active && (
                     <View style={styles.manageInactiveStatus}>
                       <Ionicons name="time-outline" size={14} color="#FF9800" />
                       <Text style={styles.manageInactiveText}>Not active</Text>
@@ -372,40 +450,40 @@ const VirtualNumberDashboard: React.FC = () => {
                   )}
                 </View>
               </View>
-              {number.unread_count > 0 && (
+              {socialMediaNumbers[0].unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
                   <Text style={styles.notificationText}>
-                    {number.unread_count} new notifications
+                    {socialMediaNumbers[0].unread_count} new notifications
                   </Text>
                 </View>
               )}
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
-        ))}
+        )}
 
-        {personalNumbers.map((number) => (
+        {personalNumbers.length > 0 && (
           <TouchableOpacity
-            key={number.id}
             onPress={() => router.push("/personal")}
             style={styles.manageCard}
           >
             <View style={styles.manageContent}>
               <View style={styles.manageHeader}>
-                <Text style={styles.manageTitle}>
-                  {formatCategoryName(number.category)}
-                </Text>
+                <View style={styles.categoryTitleRow}>
+                  <Ionicons name="person-outline" size={20} color="#9C27B0" style={styles.categoryIcon} />
+                  <Text style={styles.manageTitle}>Personal</Text>
+                </View>
                 <View style={styles.manageNumberRow}>
                   <Text 
                     style={[
                       styles.manageNumber,
-                      !number.is_active && styles.inactiveManageNumber
+                      !personalNumbers[0].is_active && styles.inactiveManageNumber
                     ]}
                   >
-                    {number.numbers}
+                    {personalNumbers[0].numbers}
                   </Text>
-                  {!number.is_active && (
+                  {!personalNumbers[0].is_active && (
                     <View style={styles.manageInactiveStatus}>
                       <Ionicons name="time-outline" size={14} color="#FF9800" />
                       <Text style={styles.manageInactiveText}>Not active</Text>
@@ -413,18 +491,18 @@ const VirtualNumberDashboard: React.FC = () => {
                   )}
                 </View>
               </View>
-              {number.unread_count > 0 && (
+              {personalNumbers[0].unread_count > 0 && (
                 <View style={styles.notificationContainer}>
                   <Ionicons name="alert-circle" size={16} color="#FF3B30" />
                   <Text style={styles.notificationText}>
-                    {number.unread_count} new notifications
+                    {personalNumbers[0].unread_count} new notifications
                   </Text>
                 </View>
               )}
             </View>
             <Ionicons name="chevron-forward" size={22} color="#000" />
           </TouchableOpacity>
-        ))}
+        )}
       </ScrollView>
 
       {/* Location Detection Modal */}
@@ -768,7 +846,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     backgroundColor: "#e9ecef",
-    marginRight: 8,
   },
   inactiveNumber: {
     backgroundColor: "#f0f0f0",
@@ -783,20 +860,6 @@ const styles = StyleSheet.create({
   },
   copyIcon: {
     marginLeft: 6,
-  },
-  inactiveStatusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 4,
-    backgroundColor: "#fff3cd",
-    borderRadius: 4,
-    paddingHorizontal: 6,
-  },
-  inactiveStatusText: {
-    fontSize: 12,
-    color: "#e0a800",
-    marginLeft: 4,
-    fontWeight: "500",
   },
   statsRow: {
     flexDirection: "row",
@@ -836,11 +899,56 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  activationNote: {
-    fontSize: 12,
-    color: "#6c757d",
+  infoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  infoButtonText: {
+    color: "#36454F",
+    fontWeight: "600",
+    fontSize: 14,
+    marginRight: 8,
+  },
+  infoCard: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 10,
+    padding: 16,
     marginTop: 8,
-    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+    overflow: 'hidden',
+  },
+  infoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#212529",
+    marginLeft: 8,
+  },
+  infoContent: {
+    paddingLeft: 4,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  infoIcon: {
+    marginTop: 2,
+    marginRight: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: "#495057",
+    flex: 1,
+    lineHeight: 20,
   },
   requestText: {
     color: "#fff",
@@ -905,18 +1013,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   manageHeader: {
-    marginBottom: 8,
+    // marginBottom removed for better alignment
+  },
+  categoryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // marginBottom removed for better alignment
+  },
+  categoryIcon: {
+    marginRight: 8,
   },
   manageTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#212529",
-    marginBottom: 4,
   },
   manageNumberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginTop: 4,
+    marginLeft: 28, // 24 (icon width) + 4 (icon margin)
   },
   manageNumber: {
     fontSize: 14,
@@ -948,6 +1065,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     alignSelf: 'flex-start',
+    marginTop: 8,
   },
   notificationText: {
     color: "#721c24",

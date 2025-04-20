@@ -144,7 +144,30 @@ def deactivate_virtual_number(request, virtual_number_id):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#! DEACTIVATE AND ACTIVATEVIRTUAL MESSAGE
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def deactivate_virtual_number_message(request, virtual_number_id):
+    try:
+        virtual_number = VirtualNumber.objects.get(id=virtual_number_id)
+        if virtual_number.is_message_active:
+            virtual_number.is_message_active = False
+            virtual_number.save()
+            return Response({'message': 'Successfully Messages deactivated'}, status=status.HTTP_200_OK)
+        else:
+            virtual_number.is_message_active = True
+            virtual_number.save()
+            return Response({'message': 'Successfully Messages activated'}, status=status.HTTP_200_OK)
     
+    except VirtualNumber.DoesNotExist:
+        return Response({'message': 'Virtual number not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 #! GET TOTAL NOTIFICATION COUNT        
@@ -179,7 +202,11 @@ def receive_message(request):
         virtual_number_obj=VirtualNumber.objects.get(numbers=virtual_number)
     except VirtualNumber.DoesNotExist:
         return Response({"message": "Virtual number not found"}, 
-                        status=status.HTTP_404_NOT_FOUND)    
+                        status=status.HTTP_404_NOT_FOUND)
+
+    if not virtual_number_obj.is_message_active:
+        return Response({"message": "Virtual number is not active"}, 
+                        status=status.HTTP_400_BAD_REQUEST)
 
     if not virtual_number_obj.is_active:
         return Response({"message": "Virtual number is not active"}, 
@@ -330,26 +357,7 @@ def delete_message(request,message_id):
         return Response({'message':'Message not found'},status=status.HTTP_400_BAD_REQUEST)
     
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
 
 #! GET PHYSICAL NUMBER BY VIRTUAL NUMBER

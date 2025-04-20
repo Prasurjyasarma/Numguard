@@ -25,6 +25,7 @@ class VirtualNumber(models.Model):
     category=models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     physical_number=models.ForeignKey(PhysicalNumber,on_delete=models.CASCADE,related_name='virtual_numbers')
     is_active=models.BooleanField(default=True)
+    is_message_active=models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

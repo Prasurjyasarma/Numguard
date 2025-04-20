@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Switch,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,8 +55,17 @@ const Ecommerce: React.FC = () => {
   const [messageDeleteModalVisible, setMessageDeleteModalVisible] = useState(false);
   const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
   const [deactivateLoading, setDeactivateLoading] = useState(false);
-  const [deactivateMessages, setDeactivateMessages] = useState(false);
+  
+  // Fixed: Changed the state variable to better reflect its meaning
+  // Now using isMessagesActive instead of deactivateMessages
+  const [isMessagesActive, setIsMessagesActive] = useState(true);
   const [deactivateCalls, setDeactivateCalls] = useState(false);
+  
+  // New states for popup notification
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,7 +80,10 @@ const Ecommerce: React.FC = () => {
           setCurrentVirtualNumber(virtualNumberData.numbers);
           setVirtualNumberId(virtualNumberData.id);
           setIsVirtualNumberActive(virtualNumberData.is_active);
-          setDeactivateMessages(virtualNumberData.deactivate_messages || false);
+          
+          // Fixed: Update this line to correctly represent message status
+          // If is_message_active is true, messages are active
+          setIsMessagesActive(virtualNumberData.is_message_active || false);
           setDeactivateCalls(virtualNumberData.deactivate_calls || false);
         } else {
           setCurrentVirtualNumber("No number available");
@@ -127,6 +140,31 @@ const Ecommerce: React.FC = () => {
       }
     };
   }, [currentCategory]);
+
+  // New function to show popup notification
+  const showNotificationPopup = (message: string, type: "success" | "error" = "success") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+    
+    // Animate fade in
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowPopup(false);
+      });
+    }, 3000);
+  };
 
   const handleNotificationPress = async (id: number) => {
     try {
@@ -208,11 +246,11 @@ const Ecommerce: React.FC = () => {
             setUnreadNotifications(prevUnread => prevUnread - 1);
           }
           setMessageDeleteModalVisible(false);
-          Alert.alert("Success", "Message deleted successfully");
+          showNotificationPopup("Message deleted successfully");
         }
       } catch (error) {
         console.error("Error deleting message:", error);
-        Alert.alert("Error", "Failed to delete message");
+        showNotificationPopup("Failed to delete message", "error");
       } finally {
         setMessageDeleteLoading(false);
         setMessageToDelete(null);
@@ -233,7 +271,6 @@ const Ecommerce: React.FC = () => {
       try {
         setDeactivateLoading(true);
         const response = await api.post(`/deactivate-virtual-number/${virtualNumberId}/`, {
-          deactivate_messages: deactivateMessages,
           deactivate_calls: deactivateCalls,
         });
         
@@ -243,17 +280,63 @@ const Ecommerce: React.FC = () => {
           const statusMessage = isVirtualNumberActive ? 
             "Virtual number deactivated successfully" : 
             "Virtual number activated successfully";
-          Alert.alert("Success", statusMessage);
+          showNotificationPopup(statusMessage);
         }
       } catch (error) {
         console.error("Error toggling virtual number status:", error);
-        Alert.alert("Error", "Failed to update virtual number status");
+        showNotificationPopup("Failed to update virtual number status", "error");
       } finally {
         setDeactivateLoading(false);
       }
     } else {
-      Alert.alert("Error", "No virtual number to update");
+      showNotificationPopup("No virtual number to update", "error");
       setDeactivateModalVisible(false);
+    }
+  };
+
+  // Modified: Updated toggle messages function to use the new popup notification
+  const handleToggleMessages = async () => {
+    if (virtualNumberId) {
+      try {
+        console.log("Toggling message status for virtualNumberId:", virtualNumberId);
+        console.log("Current isMessagesActive state:", isMessagesActive);
+        
+        const response = await api.post(
+          `/deactivate-virtual-number-message/${virtualNumberId}/`,
+          {}
+        );
+        
+        console.log("API response:", response.data);
+        
+        if (response.status === 200) {
+          // Toggle the UI state
+          setIsMessagesActive(prevState => !prevState);
+          
+          const newState = !isMessagesActive;
+          console.log("New isMessagesActive state will be:", newState);
+          
+          // Show popup notification based on the new state instead of Alert
+          const statusMessage = newState ? 
+            "Messages activated successfully" : 
+            "Messages deactivated successfully";
+          showNotificationPopup(statusMessage);
+        }
+      } catch (error) {
+        // Type-safe error handling
+        console.error("Error toggling message status:", error);
+        
+        // Check if error is an object with a response property
+        if (error && typeof error === 'object' && 'response' in error) {
+          const errorObj = error as { response?: { data?: any } };
+          console.error("Error details:", errorObj.response?.data || "No response data");
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          console.error("Error message:", (error as { message: string }).message);
+        }
+        
+        showNotificationPopup("Failed to update message status", "error");
+      }
+    } else {
+      showNotificationPopup("No virtual number available", "error");
     }
   };
 
@@ -324,21 +407,29 @@ const Ecommerce: React.FC = () => {
 
             <View style={styles.togglesContainer}>
               <View style={styles.toggleItem}>
-                <Text style={styles.toggleLabel}>Deactivate Messages</Text>
+                <Text style={[
+                  styles.toggleLabel,
+                  !isVirtualNumberActive && styles.disabledText
+                ]}>Activate Messages</Text>
                 <Switch
-                  value={deactivateMessages}
-                  onValueChange={setDeactivateMessages}
+                  value={isMessagesActive}
+                  onValueChange={() => handleToggleMessages()}
                   trackColor={{ false: "#767577", true: "#81b0ff" }}
-                  thumbColor={deactivateMessages ? "#f5dd4b" : "#f4f3f4"}
+                  thumbColor={isMessagesActive ? "#f5dd4b" : "#f4f3f4"}
+                  disabled={!isVirtualNumberActive}
                 />
               </View>
               <View style={styles.toggleItem}>
-                <Text style={styles.toggleLabel}>Deactivate Calls</Text>
+                <Text style={[
+                  styles.toggleLabel,
+                  !isVirtualNumberActive && styles.disabledText
+                ]}>Activate Calls</Text>
                 <Switch
                   value={deactivateCalls}
                   onValueChange={setDeactivateCalls}
                   trackColor={{ false: "#767577", true: "#81b0ff" }}
                   thumbColor={deactivateCalls ? "#f5dd4b" : "#f4f3f4"}
+                  disabled={!isVirtualNumberActive}
                 />
               </View>
             </View>
@@ -402,6 +493,26 @@ const Ecommerce: React.FC = () => {
         </View>
       </ScrollView>
 
+      {/* Custom Popup Notification */}
+      {showPopup && (
+        <Animated.View 
+          style={[
+            styles.popupContainer,
+            popupMessage.includes("deactivated") ? styles.popupError : styles.popupSuccess,
+            { opacity: fadeAnim }
+          ]}
+        >
+          <View style={styles.popupContent}>
+            <Ionicons 
+              name={popupMessage.includes("deactivated") ? "close-circle" : "checkmark-circle"} 
+              size={24} 
+              color="#fff" 
+            />
+            <Text style={styles.popupText}>{popupMessage}</Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Delete Number Modal */}
       <Modal
         animationType="fade"
@@ -455,16 +566,10 @@ const Ecommerce: React.FC = () => {
               {isVirtualNumberActive ? "Confirm Deactivate" : "Confirm Activate"}
             </Text>
             <Text style={styles.modalMessage}>
-              Are you sure you want to {isVirtualNumberActive ? "deactivate" : "activate"} this virtual number?
+              {isVirtualNumberActive 
+                ? "Deactivate this virtual number to stop receiving calls and messages but will not permanently delete the number."
+                : "Activate this virtual number to start receiving calls and messages again."}
             </Text>
-            <View style={styles.deactivateOptions}>
-              <View style={styles.deactivateOption}>
-                <Text style={styles.deactivateOptionText}>Deactivate Messages: {deactivateMessages ? "Yes" : "No"}</Text>
-              </View>
-              <View style={styles.deactivateOption}>
-                <Text style={styles.deactivateOptionText}>Deactivate Calls: {deactivateCalls ? "Yes" : "No"}</Text>
-              </View>
-            </View>
             {deactivateLoading ? (
               <ActivityIndicator
                 size="large"
@@ -621,7 +726,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   deactivateButton: {
-    backgroundColor: "#fd7e14",
+    backgroundColor: "black",
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
@@ -809,41 +914,73 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     alignItems: "center",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
-  },
-  cancelButton: {
-    backgroundColor: "#e9ecef",
-    shadowColor: "#000",
-  },
-  confirmButton: {
-    backgroundColor: "#dc3545",
-    shadowColor: "#dc3545",
-  },
-  activateButton: {
-    backgroundColor: "#28a745",
-    shadowColor: "#28a745",
-  },
-  cancelButtonText: {
-    color: "#212529",
-    fontWeight: "600",
-  },
-  confirmButtonText: {
-    color: "#fff",
-    fontWeight: "600",
+    elevation: 2,
   },
   loadingIndicator: {
     marginVertical: 20,
   },
   noMessagesText: {
     textAlign: "center",
-    fontSize: 16,
     color: "#6c757d",
+    fontSize: 16,
     marginTop: 20,
   },
   deleteMessageButton: {
     padding: 8,
+  },
+  cancelButton: {
+    backgroundColor: "#6c757d",
+  },
+  confirmButton: {
+    backgroundColor: "#dc3545",
+  },
+  activateButton: {
+    backgroundColor: "#28a745",
+  },
+  cancelButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  popupContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  popupContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  popupSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  popupError: {
+    backgroundColor: '#FF3B30',
+  },
+  popupText: {
+    color: '#fff',
+    marginLeft: 10,
+    fontSize: 16,
+    flex: 1,
+  },
+  disabledText: {
+    color: '#999',
+    opacity: 0.7,
   },
 });
 

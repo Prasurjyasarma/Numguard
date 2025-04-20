@@ -20,6 +20,7 @@ import api from "../api";
 interface ServiceOptionProps {
   title: string;
   onPress: () => void;
+  icon: React.ReactNode;
 }
 
 interface Notification {
@@ -36,9 +37,12 @@ interface CategoryUnreadCounts {
   [key: string]: number;
 }
 
-const ServiceOption: React.FC<ServiceOptionProps> = ({ title, onPress }) => (
+const ServiceOption: React.FC<ServiceOptionProps> = ({ title, onPress, icon }) => (
   <TouchableOpacity style={styles.serviceOption} onPress={onPress}>
-    <Text style={styles.serviceOptionText}>{title}</Text>
+    <View style={styles.serviceOptionContent}>
+      {icon}
+      <Text style={styles.serviceOptionText}>{title}</Text>
+    </View>
     <Ionicons name="chevron-forward" size={22} color="#000" />
   </TouchableOpacity>
 );
@@ -212,10 +216,23 @@ const HomeScreen: React.FC = () => {
           <ServiceOption
             title="Virtual numbers"
             onPress={() => router.push("/virtual-number-call")}
+            icon={<Ionicons name="phone-portrait-outline" size={20} color="#4CAF50" style={styles.serviceIcon} />}
           />
-          <ServiceOption title="Recharge" onPress={() => {}} />
-          <ServiceOption title="Data add ons" onPress={() => {}} />
-          <ServiceOption title="SMS packs" onPress={() => {}} />
+          <ServiceOption
+            title="Recharge"
+            onPress={() => {}}
+            icon={<Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.serviceIcon} />}
+          />
+          <ServiceOption
+            title="Data add ons"
+            onPress={() => {}}
+            icon={<Ionicons name="cellular-outline" size={20} color="#2196F3" style={styles.serviceIcon} />}
+          />
+          <ServiceOption
+            title="SMS packs"
+            onPress={() => {}}
+            icon={<Ionicons name="chatbubble-outline" size={20} color="#9C27B0" style={styles.serviceIcon} />}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -402,7 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#dc3545",
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 25,
+    borderRadius: 7,
     flex: 1,
     marginRight: 8,
     alignItems: "center",
@@ -421,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#28A745",
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 25,
+    borderRadius: 7,
     flex: 1,
     marginLeft: 8,
     alignItems: "center",
@@ -489,10 +506,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  serviceOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   serviceOptionText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+  },
+  serviceIcon: {
+    marginRight: 12,
   },
 });
 
