@@ -12,6 +12,7 @@ import {
   ScrollView,
   Switch,
   Animated,
+  Clipboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -132,6 +133,13 @@ const Ecommerce: React.FC = () => {
       }
     };
   }, [currentCategory]);
+
+  const copyToClipboard = () => {
+    if (currentVirtualNumber && currentVirtualNumber !== "No number available") {
+      Clipboard.setString(currentVirtualNumber);
+      showNotificationPopup("Number copied to clipboard");
+    }
+  };
 
   const showNotificationPopup = (message: string, type: "success" | "error" = "success") => {
     setPopupMessage(message);
@@ -346,9 +354,19 @@ const Ecommerce: React.FC = () => {
             <Text style={styles.headerTitle}>
               {formatCategoryName(currentCategory)}
             </Text>
-            <Text style={styles.headerNumber}>
-              {loading ? "Loading..." : `(${currentVirtualNumber})`}
-            </Text>
+            <View style={styles.numberContainer}>
+              <Text style={styles.headerNumber}>
+                {loading ? "Loading..." : currentVirtualNumber}
+              </Text>
+              {currentVirtualNumber && currentVirtualNumber !== "No number available" && (
+                <TouchableOpacity 
+                  style={styles.copyButton} 
+                  onPress={copyToClipboard}
+                >
+                  <Ionicons name="copy-outline" size={18} color="#000" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           <TouchableOpacity style={styles.helpButton}>
             <Ionicons name="help-circle-outline" size={24} color="#000" />
@@ -663,10 +681,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#212529",
   },
+  numberContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
   headerNumber: {
     fontSize: 14,
     color: "#6c757d",
-    marginTop: 4,
+  },
+  copyButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   helpButton: {
     padding: 4,
