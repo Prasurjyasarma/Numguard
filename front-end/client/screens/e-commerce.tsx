@@ -55,13 +55,8 @@ const Ecommerce: React.FC = () => {
   const [messageDeleteModalVisible, setMessageDeleteModalVisible] = useState(false);
   const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
   const [deactivateLoading, setDeactivateLoading] = useState(false);
-  
-  // Fixed: Changed the state variable to better reflect its meaning
-  // Now using isMessagesActive instead of deactivateMessages
   const [isMessagesActive, setIsMessagesActive] = useState(true);
   const [deactivateCalls, setDeactivateCalls] = useState(false);
-  
-  // New states for popup notification
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
@@ -80,9 +75,6 @@ const Ecommerce: React.FC = () => {
           setCurrentVirtualNumber(virtualNumberData.numbers);
           setVirtualNumberId(virtualNumberData.id);
           setIsVirtualNumberActive(virtualNumberData.is_active);
-          
-          // Fixed: Update this line to correctly represent message status
-          // If is_message_active is true, messages are active
           setIsMessagesActive(virtualNumberData.is_message_active || false);
           setDeactivateCalls(virtualNumberData.deactivate_calls || false);
         } else {
@@ -141,20 +133,17 @@ const Ecommerce: React.FC = () => {
     };
   }, [currentCategory]);
 
-  // New function to show popup notification
   const showNotificationPopup = (message: string, type: "success" | "error" = "success") => {
     setPopupMessage(message);
     setPopupType(type);
     setShowPopup(true);
     
-    // Animate fade in
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
     
-    // Auto hide after 3 seconds
     setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -294,7 +283,6 @@ const Ecommerce: React.FC = () => {
     }
   };
 
-  // Modified: Updated toggle messages function to use the new popup notification
   const handleToggleMessages = async () => {
     if (virtualNumberId) {
       try {
@@ -309,23 +297,19 @@ const Ecommerce: React.FC = () => {
         console.log("API response:", response.data);
         
         if (response.status === 200) {
-          // Toggle the UI state
           setIsMessagesActive(prevState => !prevState);
           
           const newState = !isMessagesActive;
           console.log("New isMessagesActive state will be:", newState);
           
-          // Show popup notification based on the new state instead of Alert
           const statusMessage = newState ? 
             "Messages activated successfully" : 
             "Messages deactivated successfully";
           showNotificationPopup(statusMessage);
         }
       } catch (error) {
-        // Type-safe error handling
         console.error("Error toggling message status:", error);
         
-        // Check if error is an object with a response property
         if (error && typeof error === 'object' && 'response' in error) {
           const errorObj = error as { response?: { data?: any } };
           console.error("Error details:", errorObj.response?.data || "No response data");
@@ -522,10 +506,17 @@ const Ecommerce: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Confirm Delete</Text>
+            <Text style={styles.modalTitle}>Delete Virtual Number</Text>
             <Text style={styles.modalMessage}>
-              NOTE: THIS ACTION WILL TAKE 24 HOURS TO REFLECT
-              Are you sure you want to delete this virtual number?
+              You are about to permanently delete this virtual number. Please note:
+              {"\n\n"}
+              • This action cannot be undone
+              {"\n"}
+              • All associated messages and call history will be permanently removed
+              {"\n"}
+              • Changes may take up to 24 hours to fully process
+              {"\n\n"}
+              Are you sure you want to proceed with deletion?
             </Text>
             {deleteLoading ? (
               <ActivityIndicator
@@ -545,7 +536,7 @@ const Ecommerce: React.FC = () => {
                   style={[styles.modalButton, styles.confirmButton]}
                   onPress={handleConfirmDelete}
                 >
-                  <Text style={styles.confirmButtonText}>Delete</Text>
+                  <Text style={styles.confirmButtonText}>Confirm Delete</Text>
                 </TouchableOpacity>
               </View>
             )}
