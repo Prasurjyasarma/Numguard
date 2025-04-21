@@ -8,6 +8,7 @@ import {
   ScrollView,
   SafeAreaView,
   Modal,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -55,6 +56,9 @@ const HomeScreen: React.FC = () => {
     useState<CategoryUnreadCounts>({});
   const [physicalNumber, setPhysicalNumber] = useState<string>("");
   const [notificationCount, setNotificationCount] = useState<number>(0);
+
+  // Use Platform-specific container
+  const Container = Platform.OS === 'ios' ? SafeAreaView : View;
 
   // Fetch physical number
   useEffect(() => {
@@ -106,8 +110,11 @@ const HomeScreen: React.FC = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollContainer}>
+    <Container style={[styles.safeArea, Platform.OS === 'android' && styles.androidSafeArea]}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#000" />
@@ -235,7 +242,7 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Container>
   );
 };
 
@@ -252,8 +259,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  androidSafeArea: {
+    paddingTop: Platform.OS === 'android' ? 30 : 0
+  },
   scrollContainer: {
     flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: 20,
   },
   header: {
     flexDirection: "row",

@@ -13,6 +13,7 @@ import {
   Switch,
   Animated,
   Clipboard,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,6 +66,9 @@ const Ecommerce: React.FC = () => {
   
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Use Platform-specific container
+  const Container = Platform.OS === 'ios' ? SafeAreaView : View;
+
   useEffect(() => {
     const fetchVirtualNumber = async () => {
       try {
@@ -97,17 +101,29 @@ const Ecommerce: React.FC = () => {
     setIsAutoRefreshing(true);
     try {
       const response = await api.get(`/forward-message/?category=${currentCategory}`);
-      if (response.data) {
-        setMessages(response.data);
-        const total = response.data.length;
-        const unread = response.data.filter((msg: Message) => !msg.is_read).length;
-        setTotalNotifications(total);
-        setUnreadNotifications(unread);
-      }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      if (!isAutoRefreshing) {
-        Alert.alert("Error", "Failed to fetch messages");
+  
+      const messages = response.data || [];
+      setMessages(messages);
+  
+      const total = messages.length;
+      const unread = messages.filter((msg: Message) => !msg.is_read).length;
+  
+      setTotalNotifications(total);
+      setUnreadNotifications(unread);
+    } catch (error: any) {
+      const status = error?.response?.status;
+  
+      if (status === 404) {
+        // 404 - No messages found, just reset the state silently
+        setMessages([]);
+        setTotalNotifications(0);
+        setUnreadNotifications(0);
+      } else {
+        // Show alert only for non-404 errors and log them
+        if (!isAutoRefreshing) {
+          Alert.alert("Error", "Failed to fetch messages");
+        }
+        console.error("Error fetching messages:", error);
       }
     } finally {
       setMessagesLoading(false);
@@ -115,6 +131,7 @@ const Ecommerce: React.FC = () => {
     }
   };
 
+  
   useEffect(() => {
     if (currentCategory) {
       fetchMessages();
@@ -340,9 +357,12 @@ const Ecommerce: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Container style={[styles.safeArea, Platform.OS === 'android' && styles.androidSafeArea]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -412,26 +432,28 @@ const Ecommerce: React.FC = () => {
                 <Text style={[
                   styles.toggleLabel,
                   !isVirtualNumberActive && styles.disabledText
-                ]}>Activate Messages</Text>
+                ]}>Messages</Text>
                 <Switch
                   value={isMessagesActive}
                   onValueChange={() => handleToggleMessages()}
-                  trackColor={{ false: "#767577", true: "#81b0ff" }}
-                  thumbColor={isMessagesActive ? "#f5dd4b" : "#f4f3f4"}
+                  trackColor={{ false: "#767577", true: "#4CAF50" }}
+                  thumbColor="#FFFFFF"
                   disabled={!isVirtualNumberActive}
+                  style={styles.largeSwitch}
                 />
               </View>
               <View style={styles.toggleItem}>
                 <Text style={[
                   styles.toggleLabel,
                   !isVirtualNumberActive && styles.disabledText
-                ]}>Activate Calls</Text>
+                ]}>Calls</Text>
                 <Switch
                   value={deactivateCalls}
                   onValueChange={setDeactivateCalls}
-                  trackColor={{ false: "#767577", true: "#81b0ff" }}
-                  thumbColor={deactivateCalls ? "#f5dd4b" : "#f4f3f4"}
+                  trackColor={{ false: "#767577", true: "#4CAF50" }}
+                  thumbColor="#FFFFFF"
                   disabled={!isVirtualNumberActive}
+                  style={styles.largeSwitch}
                 />
               </View>
             </View>
@@ -648,7 +670,7 @@ const Ecommerce: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Container>
   );
 };
 
@@ -657,8 +679,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f9fa",
   },
+  androidSafeArea: {
+    paddingTop: Platform.OS === 'android' ? 35 : 0
+  },
   scrollContainer: {
     flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: 20,
   },
   header: {
     flexDirection: "row",
@@ -998,6 +1026,9 @@ const styles = StyleSheet.create({
   disabledText: {
     color: '#999',
     opacity: 0.7,
+  },
+  largeSwitch: {
+    transform: [{ scaleX: 1.2 }],
   },
 });
 

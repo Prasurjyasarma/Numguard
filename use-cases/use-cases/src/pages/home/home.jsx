@@ -13,37 +13,37 @@ const Home = () => {
     {
       id: 1,
       name: 'Minimal Chair',
-      price: 199,
+      price: 1299,
       image: 'https://images.unsplash.com/photo-1517705008128-361805f42e86?ixlib=rb-1.2.1&auto=format&fit=crop&w=634&q=80'
     },
     {
       id: 2,
       name: 'Simple Lamp',
-      price: 89,
+      price: 799,
       image: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?ixlib=rb-1.2.1&auto=format&fit=crop&w=1050&q=80'
     },
     {
       id: 3,
       name: 'Clean Table',
-      price: 299,
+      price: 4999,
       image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-1.2.1&auto=format&fit=crop&w=1050&q=80'
     },
     {
       id: 4,
       name: 'Modern Sofa',
-      price: 599,
+      price: 14599,
       image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-1.2.1&auto=format&fit=crop&w=1050&q=80'
     },
     {
       id: 5,
       name: 'Elegant Desk',
-      price: 349,
+      price: 8000,
       image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-1.2.1&auto=format&fit=crop&w=1050&q=80'
     },
     {
       id: 6,
       name: 'Minimal Bookshelf',
-      price: 249,
+      price: 11149,
       image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-1.2.1&auto=format&fit=crop&w=1050&q=80'
     },
   ];
@@ -52,9 +52,24 @@ const Home = () => {
   const [cart, setCart] = useState([]);
   const [messageCount, setMessageCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
   
-  // Maximum number of messages to send
-  const MAX_MESSAGES = 10;
+  // Three specific messages to send
+  const messages = [
+    {
+      text: "Welcome to our store!",
+      sender: "shopEasy"
+    },
+    {
+      text: "🎁 You've earned a special reward! Use code **WELCOME10** to get 10% off your next purchase.",
+      sender: "shopEasy"
+    },
+    {
+      text: "💥 Don't forget to check out our new summer collection with 20% off for a limited time!",
+      sender: "shopEasy"
+    }
+  ];
 
   // Add to cart
   const addToCart = (product) => {
@@ -77,19 +92,33 @@ const Home = () => {
   // Calculate total
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // Message sending function
-  const sendPromotionalMessage = async () => {
+  // Send a specific message
+  const sendMessage = async (message) => {
     if (!userPhoneNumber) return;
     
     try {
-      const message = '🛍️ New minimalist collection just arrived! Shop now for exclusive deals!';
-      const url = new URL('http://localhost:8000/api/receive-message/');
-      url.searchParams.append('virtual_number', userPhoneNumber);
-      url.searchParams.append('sender_name', 'shopeasy');
-      url.searchParams.append('message', message);
+      // Format the phone number to ensure it's in the correct format
+      const formattedNumber = userPhoneNumber.replace(/\D/g, '');
       
-      const response = await fetch(url.toString());
-      if (!response.ok) throw new Error('Failed to send message');
+      // Create URL with properly encoded parameters
+      const url = new URL('http://localhost:8000/api/receive-message/');
+      url.searchParams.append('virtual_number', formattedNumber);
+      url.searchParams.append('sender_name', message.sender);
+      url.searchParams.append('message', message.text);
+      
+      // Use GET method as required by the API
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API error details:', errorData);
+        throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+      }
       
       setMessageCount(prev => prev + 1);
       return response.json();
@@ -99,29 +128,64 @@ const Home = () => {
     }
   };
 
-  // Send messages with interval
-  useEffect(() => {
-    let intervalId;
-    
-    if (userPhoneNumber && messageCount < MAX_MESSAGES) {
-      // Send first message immediately
-      sendPromotionalMessage();
+  // Handle checkout button click
+  const handleCheckout = async () => {
+    try {
+      // Send order confirmation message
+      await sendMessage({
+        text: "Your order has been placed and will be delivered in 2-4 business days. Thank you for shopping with us!",
+        sender: "shopEasy"
+      });
       
-      // Then set up interval for subsequent messages
-      intervalId = setInterval(async () => {
-        if (messageCount < MAX_MESSAGES - 1) { // -1 because we already sent the first one
-          await sendPromotionalMessage();
-        } else {
-          clearInterval(intervalId);
-        }
-      }, 5000); // 5 second delay
+      // Clear cart and close modal
+      setCart([]);
+      setShowModal(false);
+      
+      // Show success popup instead of alert
+      setPopupMessage("Order placed successfully! Check your messages for confirmation.");
+      setShowPopup(true);
+      
+      // Hide popup after 3 seconds
+      setTimeout(() => {
+        setShowPopup(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      setPopupMessage("There was an error processing your order. Please try again.");
+      setShowPopup(true);
+      
+      // Hide error popup after 3 seconds
+      setTimeout(() => {
+        setShowPopup(false);
+      }, 3000);
     }
+  };
 
-    // Cleanup interval on unmount or when conditions change
-    return () => {
-      if (intervalId) clearInterval(intervalId);
+  // Automatically send all messages when component mounts
+  useEffect(() => {
+    const sendAllMessages = async () => {
+      if (!userPhoneNumber || messageCount >= 3) return;
+      
+      try {
+        // Send first message
+        await sendMessage(messages[0]);
+        
+        // Send second message after a 7-second delay
+        setTimeout(async () => {
+          await sendMessage(messages[1]);
+          
+          // Send third message after another 7-second delay
+          setTimeout(async () => {
+            await sendMessage(messages[2]);
+          }, 7000);
+        }, 7000);
+      } catch (error) {
+        console.error('Error sending messages:', error);
+      }
     };
-  }, [userPhoneNumber]); // Only depend on userPhoneNumber
+
+    sendAllMessages();
+  }, [userPhoneNumber]); // Only run when userPhoneNumber changes
 
   // Logout handler
   const handleLogout = () => {
@@ -136,7 +200,7 @@ const Home = () => {
       {/* Header */}
       <header>
         <div className="container">
-          <h1>minimal.</h1>
+          <h1>shopEasy.</h1>
           <div className="header-actions">
             <button className="logout-btn" onClick={handleLogout}>
               Logout
@@ -153,19 +217,8 @@ const Home = () => {
         <div className="container">
           <h2>Minimal Design, Maximum Quality</h2>
           <p>Discover our curated collection of minimalist products</p>
-          <button 
-            className="btn" 
-            onClick={sendPromotionalMessage} 
-            disabled={!userPhoneNumber || messageCount >= MAX_MESSAGES}
-          >
-            {!userPhoneNumber 
-              ? 'No Verified Number' 
-              : messageCount >= MAX_MESSAGES 
-                ? 'Max Messages Sent' 
-                : 'Get Promo Message'}
-          </button>
           {messageCount > 0 && (
-            <p className="message-sent">Messages sent: {messageCount}/{MAX_MESSAGES}</p>
+            <p className="message-sent">Messages sent: {messageCount}/3</p>
           )}
         </div>
       </section>
@@ -180,7 +233,7 @@ const Home = () => {
                 <img src={product.image} alt={product.name} />
                 <div className="product-info">
                   <h3>{product.name}</h3>
-                  <p className="price">${product.price}</p>
+                  <p className="price">₹{product.price}</p>
                   <button 
                     className="btn" 
                     onClick={() => addToCart(product)}
@@ -215,7 +268,7 @@ const Home = () => {
                       <img src={item.image} alt={item.name} />
                       <div className="cart-item-details">
                         <h3>{item.name}</h3>
-                        <p>${item.price} × {item.quantity}</p>
+                        <p>₹{item.price} × {item.quantity}</p>
                         <button 
                           className="remove-btn"
                           onClick={() => removeFromCart(item.id)}
@@ -227,11 +280,27 @@ const Home = () => {
                   ))}
                 </div>
                 <div className="cart-total">
-                  <h3>Total: ${cartTotal}</h3>
-                  <button className="btn checkout-btn">Checkout</button>
+                  <h3>Total: ₹{cartTotal}</h3>
+                  <button 
+                    className="btn checkout-btn" 
+                    onClick={handleCheckout}
+                    disabled={cart.length === 0}
+                  >
+                    Buy
+                  </button>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Order Confirmation Popup */}
+      {showPopup && (
+        <div className="popup">
+          <div className="popup-content">
+            <div className="popup-icon">✓</div>
+            <p className="popup-message">{popupMessage}</p>
           </div>
         </div>
       )}

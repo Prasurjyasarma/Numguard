@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -245,9 +246,15 @@ const VirtualNumberDashboard: React.FC = () => {
     outputRange: [0, 1],
   });
 
+  // Use Platform-specific container
+  const Container = Platform.OS === 'ios' ? SafeAreaView : View;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollContainer}>
+    <Container style={[styles.safeArea, Platform.OS === 'android' && styles.androidSafeArea]}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -326,14 +333,21 @@ const VirtualNumberDashboard: React.FC = () => {
                 style={[
                   styles.infoCard,
                   {
-                    height: infoHeight,
                     opacity: infoOpacity,
-                    transform: [{
-                      translateY: infoAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-20, 0],
-                      }),
-                    }],
+                    transform: [
+                      {
+                        translateY: infoAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-20, 0],
+                        }),
+                      },
+                      {
+                        scale: infoAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.95, 1],
+                        }),
+                      }
+                    ],
                   }
                 ]}
               >
@@ -760,18 +774,23 @@ const VirtualNumberDashboard: React.FC = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </SafeAreaView>
+    </Container>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1,
+    flex: 1, 
     backgroundColor: "#f8f9fa",
+  },
+  androidSafeArea: {
+    paddingTop: Platform.OS === 'android' ? 35 : 0
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+  },
+  scrollContentContainer: {
+    paddingBottom: 20,
   },
   header: {
     flexDirection: "row",
@@ -849,6 +868,7 @@ const styles = StyleSheet.create({
   },
   inactiveNumber: {
     backgroundColor: "#f0f0f0",
+
   },
   summaryNumber: {
     fontSize: 16,
@@ -857,6 +877,8 @@ const styles = StyleSheet.create({
   },
   inactiveNumberText: {
     color: "#6c757d",
+    opacity:0.8,
+    fontStyle:"italic"
   },
   copyIcon: {
     marginLeft: 6,
@@ -920,6 +942,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e9ecef",
     overflow: 'hidden',
+    height: 180,
   },
   infoHeader: {
     flexDirection: "row",
