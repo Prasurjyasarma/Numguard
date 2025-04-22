@@ -36,6 +36,14 @@ const VirtualNumberDashboard: React.FC = () => {
   const [locationModalVisible, setLocationModalVisible] = useState<boolean>(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState<boolean>(false);
   const [infoModalVisible, setInfoModalVisible] = useState<boolean>(false);
+  const [recoveryModalVisible, setRecoveryModalVisible] = useState<boolean>(false);
+  const [isRecovering, setIsRecovering] = useState<boolean>(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<{
+    success: boolean;
+    message: string;
+    restoredNumber?: string;
+    messagesRestored?: number;
+  }>({ success: false, message: "" });
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [processingSteps, setProcessingSteps] = useState<{ [key: string]: boolean }>({
     sendingRequest: false,
@@ -139,6 +147,37 @@ const VirtualNumberDashboard: React.FC = () => {
         }
       }, 1000);
     }, 2000);
+  };
+
+  const handleRecoverPress = async () => {
+    setRecoveryModalVisible(true);
+    setIsRecovering(true);
+    
+    // Simulate a delay to show the loading animation
+    setTimeout(async () => {
+      try {
+        const response = await api.post("/restore-last-deleted-virtual-number/");
+        setRecoveryStatus({
+          success: true,
+          message: response.data.message || "Virtual number restored successfully",
+          restoredNumber: response.data.restored_number,
+          messagesRestored: response.data.messages_restored
+        });
+        
+        // Refresh virtual numbers after successful recovery
+        setTimeout(() => {
+          fetchVirtualNumbers();
+        }, 1500);
+      } catch (error: any) {
+        // Don't log the error to console to avoid emulator issues
+        setRecoveryStatus({
+          success: false,
+          message: error.response?.data?.message || "Failed to recover virtual number. Please try again later."
+        });
+      } finally {
+        setIsRecovering(false);
+      }
+    }, 1500); // 1.5 second delay to show loading animation
   };
 
   const handleCategorySubmit = async () => {
@@ -312,6 +351,13 @@ const VirtualNumberDashboard: React.FC = () => {
               onPress={handleRequestPress}
             >
               <Text style={styles.requestText}>Request New Number</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.recoverButton}
+              onPress={handleRecoverPress}
+            >
+              <Text style={styles.recoverText}>Recover Last Deleted Number</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -612,6 +658,82 @@ const VirtualNumberDashboard: React.FC = () => {
                   >
                     <Text style={styles.requestText}>create</Text>
                   </TouchableOpacity>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Recovery Status Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={recoveryModalVisible}
+      >
+        <TouchableWithoutFeedback
+          onPress={() => setRecoveryModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContainer}>
+                {isRecovering ? (
+                  <>
+                    <Text style={styles.modalTitle}>Recovering Virtual Number</Text>
+                    <Text style={styles.recoveryInfoText}>
+                      Only the most recently deleted virtual number can be recovered.
+                    </Text>
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="large" color="#4CAF50" />
+                      <Text style={styles.loadingText}>Please wait while we recover your virtual number...</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalTitle}>
+                      {recoveryStatus.success ? "Recovery Successful" : "Recovery Failed"}
+                    </Text>
+                    
+                    <Text style={styles.recoveryInfoText}>
+                      Only the most recently deleted virtual number can be recovered.
+                    </Text>
+                    
+                    {recoveryStatus.success ? (
+                      <>
+                        <View style={styles.recoverySuccessContainer}>
+                          <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
+                          <Text style={styles.recoveryMessage}>{recoveryStatus.message}</Text>
+                          
+                          {recoveryStatus.restoredNumber && (
+                            <View style={styles.restoredNumberContainer}>
+                              <Text style={styles.restoredNumberLabel}>Restored Number:</Text>
+                              <Text style={styles.restoredNumberValue}>{recoveryStatus.restoredNumber}</Text>
+                            </View>
+                          )}
+                          
+                          {recoveryStatus.messagesRestored !== undefined && (
+                            <Text style={styles.messagesRestoredText}>
+                              {recoveryStatus.messagesRestored} messages restored
+                            </Text>
+                          )}
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.recoveryErrorContainer}>
+                          <Ionicons name="alert-circle" size={50} color="#FF3B30" />
+                          <Text style={styles.recoveryErrorMessage}>{recoveryStatus.message}</Text>
+                        </View>
+                      </>
+                    )}
+                    
+                    <TouchableOpacity
+                      style={styles.modalButton}
+                      onPress={() => setRecoveryModalVisible(false)}
+                    >
+                      <Text style={styles.requestText}>close</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </View>
             </TouchableWithoutFeedback>
@@ -921,6 +1043,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  recoverButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+    shadowColor: "#007bff",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recoverText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   infoButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1208,6 +1349,69 @@ const styles = StyleSheet.create({
     color: "#444",
     marginLeft: 8,
     flex: 1,
+  },
+  recoverySuccessContainer: {
+    alignItems: "center",
+    padding: 20,
+  },
+  recoveryMessage: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  restoredNumberContainer: {
+    backgroundColor: "#f8f9fa",
+    padding: 12,
+    borderRadius: 8,
+    width: "100%",
+    marginBottom: 16,
+  },
+  restoredNumberLabel: {
+    fontSize: 14,
+    color: "#6c757d",
+    marginBottom: 4,
+  },
+  restoredNumberValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#212529",
+  },
+  messagesRestoredText: {
+    fontSize: 14,
+    color: "#6c757d",
+    fontStyle: "italic",
+  },
+  recoveryErrorContainer: {
+    alignItems: "center",
+    padding: 20,
+  },
+  recoveryErrorMessage: {
+    fontSize: 16,
+    color: "#dc3545",
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 16,
+  },
+  recoveryInfoText: {
+    fontSize: 14,
+    color: "#6c757d",
+    textAlign: "center",
+    marginBottom: 16,
+    fontStyle: "italic",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#4CAF50",
+    textAlign: "center",
   },
 });
 

@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
-from .models import VirtualNumber, Message, PhysicalNumber, DeletedVirtualNumber
+from .models import VirtualNumber, Message, PhysicalNumber, DeletedVirtualNumber,RecoverableMessage,RecoverableVirtualNumber
 from .serializer import VirtualNumberSerializer, MessageSerializer, PhysicalNumberSerializer, DeletedVirtualNumberSerializer
 from rest_framework.permissions import AllowAny
 import random
@@ -103,11 +103,10 @@ def view_virtual_numbers(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
 #! DELETE VIRTUAL NUMBER
 @api_view(['DELETE'])
 @permission_classes([AllowAny])
-def delete_virtual_number(requset,virtual_number_id):
+def delete_virtual_number(request, virtual_number_id):
     try:
         virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
         DeletedVirtualNumber.objects.create(
@@ -115,6 +114,29 @@ def delete_virtual_number(requset,virtual_number_id):
             category=virtual_number.category,
             physical_number=virtual_number.physical_number
         )
+        RecoverableVirtualNumber.objects.all().delete()
+
+        recoverable_virtual_number=RecoverableVirtualNumber.objects.create(
+            number=virtual_number.numbers,
+            category=virtual_number.category,
+            physical_number=virtual_number.physical_number,
+            is_active=virtual_number.is_active,
+            is_message_active=virtual_number.is_message_active,
+            is_call_active=virtual_number.is_call_active
+        )
+
+        messages=Message.objects.filter(virtual_number=virtual_number)
+        for message in messages:
+            RecoverableMessage.objects.create(
+                recoverable_virtual_number=recoverable_virtual_number,
+                category=message.category,
+                sender=message.sender,
+                message_body=message.message_body,
+                is_read=message.is_read,
+                received_at=message.received_at,
+                created_at=message.created_at
+            )
+
         virtual_number.delete()
         return Response({"message": "Virtual number deleted successfully"}, status=status.HTTP_200_OK)
     
@@ -122,6 +144,55 @@ def delete_virtual_number(requset,virtual_number_id):
         return Response({"error": "Virtual number not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+
+#! RESTORE MODEL DATA
+@api_view(['POST',"GET"])
+@permission_classes([AllowAny])
+def restore_last_deleted_virtual_number(request):
+    try:
+        last_deleted_virtual_number=RecoverableVirtualNumber.objects.first()
+
+        if not last_deleted_virtual_number:
+            return Response({"message": "No recently deleted virtual number found to restore"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+        
+        if VirtualNumber.objects.filter(numbers=last_deleted_virtual_number.number).exists():
+            return Response({"message": "Cannot restore - virtual number already exists"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        recovered_virtual_number=VirtualNumber.objects.create(
+            numbers=last_deleted_virtual_number.number,
+            category=last_deleted_virtual_number.category,
+            physical_number=last_deleted_virtual_number.physical_number,
+            is_active=last_deleted_virtual_number.is_active,
+            is_message_active=last_deleted_virtual_number.is_message_active,
+            is_call_active=last_deleted_virtual_number.is_call_active
+        )
+        recoverable_messages = RecoverableMessage.objects.filter(recoverable_virtual_number=last_deleted_virtual_number)
+        message_count = recoverable_messages.count()
+        
+        for rec_message in recoverable_messages:
+            Message.objects.create(
+                virtual_number=recovered_virtual_number,
+                category=rec_message.category,
+                sender=rec_message.sender,
+                message_body=rec_message.message_body,
+                is_read=rec_message.is_read,
+                received_at=rec_message.received_at,
+                created_at=rec_message.created_at
+            )
+        
+        RecoverableVirtualNumber.objects.all().delete()
+        
+        return Response({
+            "message": "Virtual number restored successfully", 
+            "restored_number": last_deleted_virtual_number.number,
+            "messages_restored": message_count
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 #! DEACTIVATE AND ACTIVATEVIRTUAL NUMBER
@@ -236,7 +307,6 @@ SENDER_CATEGORIES = {
 
     # Social media senders
     'insta': 'social-media',
-    'fb': 'social-media',
     'twitter': 'social-media',
     'linkedin': 'social-media',
 
@@ -391,7 +461,7 @@ def get_physical_number_by_virtual_number(request, virtual_number):
 #! GET VIRTUAL NUMBER BY PHYSICAL NUMBER
 @api_view(["GET"])    
 @permission_classes([AllowAny])    
-def get_virtual_number_by_physical_number(requset,physical_number):
+def get_virtual_number_by_physical_number(request, physical_number):
     try:
         physical_number=PhysicalNumber.objects.filter(is_active=True).get(id=physical_number)
         virtual_numbers=VirtualNumber.objects.filter(physical_number=physical_number,is_active=True)
