@@ -146,7 +146,7 @@ def delete_virtual_number(request, virtual_number_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
 
-#! RESTORE MODEL DATA
+#! RESTORE LAST DELETED VIRTUAL NUMBER
 @api_view(['POST',"GET"])
 @permission_classes([AllowAny])
 def restore_last_deleted_virtual_number(request):
@@ -217,7 +217,7 @@ def deactivate_virtual_number(request, virtual_number_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-#! DEACTIVATE AND ACTIVATEVIRTUAL MESSAGE
+#! DEACTIVATE AND ACTIVATE VIRTUAL MESSAGE
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def deactivate_virtual_number_message(request, virtual_number_id):
@@ -238,6 +238,28 @@ def deactivate_virtual_number_message(request, virtual_number_id):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+#! DEACTIVATE AND ACTIVATE VIRTUAL CALL
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def deactivate_virtual_number_call(request, virtual_number_id):
+    try:
+        virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
+        if virtual_number.is_call_active:
+            virtual_number.is_call_active=False
+            virtual_number.save()
+            return Response({'message': 'Successfully Call deactivated'}, status=status.HTTP_200_OK)
+        
+        else:
+            virtual_number.is_call_active=True
+            virtual_number.save()
+            return Response({'message': 'Successfully Call activated'}, status=status.HTTP_200_OK)
+    
+    except VirtualNumber.DoesNotExist:
+        return Response({'message': 'Virtual number not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -425,9 +447,6 @@ def delete_message(request,message_id):
     
     except Message.DoesNotExist:
         return Response({'message':'Message not found'},status=status.HTTP_400_BAD_REQUEST)
-    
-
-    
 
 
 #! GET PHYSICAL NUMBER BY VIRTUAL NUMBER

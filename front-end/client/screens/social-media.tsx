@@ -58,6 +58,7 @@ const SocialMedia: React.FC = () => {
   const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
   const [deactivateLoading, setDeactivateLoading] = useState(false);
   const [isMessagesActive, setIsMessagesActive] = useState(true);
+  const [isCallsActive, setIsCallsActive] = useState(true);
   const [deactivateCalls, setDeactivateCalls] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
@@ -81,6 +82,7 @@ const SocialMedia: React.FC = () => {
           setVirtualNumberId(virtualNumberData.id);
           setIsVirtualNumberActive(virtualNumberData.is_active);
           setIsMessagesActive(virtualNumberData.is_message_active || false);
+          setIsCallsActive(!virtualNumberData.deactivate_calls || true);
           setDeactivateCalls(virtualNumberData.deactivate_calls || false);
         } else {
           setCurrentVirtualNumber("No number available");
@@ -349,6 +351,31 @@ const SocialMedia: React.FC = () => {
     }
   };
 
+  const handleToggleCalls = async () => {
+    if (virtualNumberId) {
+      try {
+        const response = await api.post(
+          `/deactivate-virtual-number-call/${virtualNumberId}/`,
+          {}
+        );
+        
+        if (response.status === 200) {
+          setIsCallsActive(prevState => !prevState);
+          const newState = !isCallsActive;
+          const statusMessage = newState ? 
+            "Calls activated successfully" : 
+            "Calls deactivated successfully";
+          showNotificationPopup(statusMessage);
+        }
+      } catch (error) {
+        console.error("Error toggling call status:", error);
+        showNotificationPopup("Failed to update call status", "error");
+      }
+    } else {
+      showNotificationPopup("No virtual number available", "error");
+    }
+  };
+
   const formatCategoryName = (category: string) => {
     return category
       .split("-")
@@ -448,8 +475,8 @@ const SocialMedia: React.FC = () => {
                   !isVirtualNumberActive && styles.disabledText
                 ]}>Calls</Text>
                 <Switch
-                  value={deactivateCalls}
-                  onValueChange={setDeactivateCalls}
+                  value={isCallsActive}
+                  onValueChange={handleToggleCalls}
                   trackColor={{ false: "#767577", true: "#4CAF50" }}
                   thumbColor="#FFFFFF"
                   disabled={!isVirtualNumberActive}

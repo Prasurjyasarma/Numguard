@@ -12,7 +12,8 @@ from .views import (
     get_physical_number_by_virtual_number,
     deactivate_virtual_number,
     deactivate_virtual_number_message,
-    restore_last_deleted_virtual_number
+    restore_last_deleted_virtual_number,
+    deactivate_virtual_number_call
 )
 
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
     path('delete-virtual-number/<int:virtual_number_id>/', delete_virtual_number, name='delete_virtual_number'),
     path('deactivate-virtual-number/<int:virtual_number_id>/',deactivate_virtual_number,name='deactivate_virtual_number'),
     path('deactivate-virtual-number-message/<int:virtual_number_id>/',deactivate_virtual_number_message,name='deactivate_virtual_number_message'),
+    path('deactivate-virtual-number-call/<int:virtual_number_id>/',deactivate_virtual_number_call,name='deactivate_virtual_number_call'),
     path('restore-last-deleted-virtual-number/',restore_last_deleted_virtual_number,name='restore_last_deleted_virtual_number'),
 
     #! Message Handling
