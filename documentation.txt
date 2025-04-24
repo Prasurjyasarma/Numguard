@@ -1,0 +1,225 @@
+NUMGUARD DOCUMENTATION
+=====================
+
+1. Project Overview
+------------------
+Numguard is a virtual number management system that allows users to:
+- Create and manage virtual phone numbers
+- Handle messages and calls through virtual numbers
+- Organize numbers by categories (e-commerce, social media, personal)
+- Control message and call activation states
+- Monitor notifications and message status
+
+2. Project Structure
+-------------------
+The project is divided into two main components:
+
+2.1 Front-end (React Native)
+---------------------------
+Location: front-end/client/
+
+Key Components:
+- screens/
+  - virtual-number-dashboard.tsx: Main dashboard for managing virtual numbers
+  - e-commerce.tsx: Category-specific screen for e-commerce numbers
+  - social.tsx: Category-specific screen for social media numbers
+  - personal.tsx: Category-specific screen for personal numbers
+
+Features:
+- Virtual number creation and management
+- Message handling and notifications
+- Call and message activation controls
+- Category-based organization
+- Real-time updates
+- User-friendly interface with modals and notifications
+
+2.2 Back-end (Django)
+--------------------
+Location: back-end/server/
+
+Key Components:
+- api/
+  - urls.py: API endpoint definitions
+  - views.py: View functions for handling requests
+  - models.py: Database models
+
+API Endpoints:
+1. Physical & Virtual Number Management:
+   - GET /physical-numbers/: Get available physical numbers
+   - POST /create-virtual-number/: Create new virtual number
+   - GET /virtual-numbers/: View virtual numbers
+   - DELETE /delete-virtual-number/<id>/: Delete virtual number
+   - POST /deactivate-virtual-number/<id>/: Deactivate virtual number
+   - POST /deactivate-virtual-number-message/<id>/: Toggle message activation
+   - POST /deactivate-virtual-number-call/<id>/: Toggle call activation
+   - POST /restore-last-deleted-virtual-number/: Restore deleted number
+
+2. Message Handling:
+   - GET /forward-message/: Get forwarded messages
+   - POST /receive-message/: Receive new messages
+   - DELETE /delete-message/<id>/: Delete specific message
+   - GET /read-message/<id>/: Mark message as read
+
+3. Notification:
+   - GET /total-notification/: Get total notification count
+
+3. Key Features
+--------------
+3.1 Virtual Number Management
+- Create virtual numbers for different categories
+- Delete and restore virtual numbers
+- Activate/deactivate virtual numbers
+- Control message and call functionality separately
+
+3.2 Message Handling
+- Real-time message updates
+- Message read/unread status
+- Message deletion
+- Category-based message organization
+
+3.3 User Interface
+- Clean and intuitive design
+- Category-based navigation
+- Real-time status updates
+- Interactive toggles for activation states
+- Notification system for user feedback
+
+4. State Management
+------------------
+Front-end uses React's useState and useEffect hooks for:
+- Virtual number states
+- Message states
+- Notification states
+- UI component states
+- API response handling
+
+5. Data Models
+-------------
+5.1 Virtual Number
+- id: Unique identifier
+- numbers: Virtual phone number
+- category: Number category (e-commerce, social, personal)
+- is_active: Active status
+- is_message_active: Message activation status
+- deactivate_calls: Call activation status
+
+5.2 Message
+- id: Unique identifier
+- virtual_number: Associated virtual number
+- sender: Message sender
+- message_body: Message content
+- category: Message category
+- is_read: Read status
+- received_at: Timestamp
+
+6. Security Features
+-------------------
+- API authentication
+- Secure number management
+- Data validation
+
+7. Error Handling
+----------------
+- API error responses
+- User-friendly error messages
+- Loading states
+- Network error handling
+- Validation error handling
+
+8. Performance Considerations
+---------------------------
+- Real-time updates
+- Efficient state management
+- Optimized API calls
+
+
+10. Development Guidelines
+------------------------
+10.1 Code Style
+- Follow React Native best practices
+- Use TypeScript for type safety
+- Maintain consistent naming conventions
+- Document complex functions
+
+10.2 Testing
+- Unit tests for components
+- API endpoint testing
+- State management testing
+- UI component testing
+
+
+11. Troubleshooting
+------------------
+Common issues and solutions:
+- API connection problems
+- State synchronization
+- UI rendering issues
+- Performance optimization
+
+
+12. Project-Specific Use Cases and Limitations
+--------------------------------------------
+12.1 Implementation Overview
+- This is a proof-of-concept/simulation project
+- No actual telecom integration is implemented
+- All functionality is simulated for demonstration purposes
+- Virtual numbers are generated locally without real telecom provider connection
+- Message handling is simulated without actual SMS gateway integration
+- Call functionality is represented by UI elements only, with no actual call handling
+
+12.2 Simulated Features
+1. Virtual Number Simulation
+   - Numbers are generated locally in the application
+   - No actual phone numbers are assigned or managed
+   - Category-based organization is simulated
+   - Activation/deactivation is UI-only
+
+2. Message Simulation
+   - Messages are stored and managed locally
+   - No actual SMS sending/receiving
+   - Message formats are predefined
+   - Read/unread status is simulated
+
+3. UI Simulation
+   - Call toggle is purely UI-based
+   - No actual call functionality
+   - Status indicators are simulated
+   - Notifications are generated within the app
+
+12.3 Current Limitations
+1. Geographic Restrictions
+   - System is designed as a simulation only
+   - No actual geographic restrictions apply
+   - All location-based features are simulated
+
+2. Message Format Limitations
+   - Only supports simulated message formats
+   - No actual message transmission
+   - Predefined message templates
+
+3. Platform Restrictions
+   - Works as a standalone application
+   - No external service integration
+   - All data is simulated and stored locally
+
+12.4 Development Purpose
+This project serves as:
+1. Proof of Concept
+   - Demonstrates potential system architecture
+   - Shows possible user interface design
+   - Illustrates workflow concepts
+
+2. Learning Tool
+   - React Native development practice
+   - State management implementation
+   - UI/UX design exploration
+   - API structure demonstration
+
+3. Design Reference
+   - System architecture reference
+   - UI/UX design patterns
+   - State management patterns
+   - API structure patterns
+
+Note: This is a simulation/proof-of-concept project only. It does not include any actual telecom integration, real phone number management, or actual message/call handling. All features are simulated for demonstration and learning purposes.
+
