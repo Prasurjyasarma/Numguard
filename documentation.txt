@@ -222,4 +222,3 @@ This project serves as:
    - API structure patterns
 
 Note: This is a simulation/proof-of-concept project only. It does not include any actual telecom integration, real phone number management, or actual message/call handling. All features are simulated for demonstration and learning purposes.
-
