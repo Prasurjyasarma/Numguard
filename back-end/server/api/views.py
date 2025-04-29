@@ -469,7 +469,7 @@ def get_physical_number_by_virtual_number(request, virtual_number):
                 serializer = PhysicalNumberSerializer(physical_number)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except DeletedVirtualNumber.DoesNotExist:
-                # If not found in either model, return 404
+
                 return Response({"error": "Virtual number not found in active or deleted records"}, 
                                status=status.HTTP_404_NOT_FOUND)
     except Exception as e:

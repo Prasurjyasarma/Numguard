@@ -343,7 +343,7 @@ const VirtualNumberDashboard: React.FC = () => {
           </View>
         </View>
 
-        {/* Request Button */}
+        {/* Request Button - Only shown when availableCount > 0 */}
         {availableCount > 0 && (
           <View style={styles.requestButtonContainer}>
             <TouchableOpacity
@@ -352,73 +352,76 @@ const VirtualNumberDashboard: React.FC = () => {
             >
               <Text style={styles.requestText}>Request New Number</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.recoverButton}
-              onPress={handleRecoverPress}
-            >
-              <Text style={styles.recoverText}>Recover Last Deleted Number</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.infoButton}
-              onPress={toggleInfo}
-            >
-              <Text style={styles.infoButtonText}>
-                {showInfo ? 'Hide Info' : 'Info About Virtual Numbers'}
-              </Text>
-              <Ionicons 
-                name={showInfo ? "chevron-up" : "chevron-down"} 
-                size={18} 
-                color="#4CAF50" 
-              />
-            </TouchableOpacity>
-
-            {showInfo && (
-              <Animated.View 
-                style={[
-                  styles.infoCard,
-                  {
-                    opacity: infoOpacity,
-                    transform: [
-                      {
-                        translateY: infoAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-20, 0],
-                        }),
-                      },
-                      {
-                        scale: infoAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.95, 1],
-                        }),
-                      }
-                    ],
-                  }
-                ]}
-              >
-                <View style={styles.infoHeader}>
-                  <Ionicons name="information-circle" size={20} color="#4CAF50" />
-                  <Text style={styles.infoTitle}>About Virtual Numbers</Text>
-                </View>
-                <View style={styles.infoContent}>
-                  <View style={styles.infoItem}>
-                    <Ionicons name="time-outline" size={16} color="#6c757d" style={styles.infoIcon} />
-                    <Text style={styles.infoText}>Numbers take up to 24 hours to activate</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Ionicons name="shield-checkmark-outline" size={16} color="#6c757d" style={styles.infoIcon} />
-                    <Text style={styles.infoText}>Temporary number linked to your real number</Text>
-                  </View>
-                  <View style={styles.infoItem}>
-                    <Ionicons name="lock-closed-outline" size={16} color="#6c757d" style={styles.infoIcon} />
-                    <Text style={styles.infoText}>Receive SMS/calls without exposing your personal number</Text>
-                  </View>
-                </View>
-              </Animated.View>
-            )}
           </View>
         )}
+
+        {/* Recover Button - Always shown regardless of count */}
+        <View style={styles.requestButtonContainer}>
+          <TouchableOpacity
+            style={styles.recoverButton}
+            onPress={handleRecoverPress}
+          >
+            <Text style={styles.recoverText}>Recover Last Deleted Number</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={toggleInfo}
+          >
+            <Text style={styles.infoButtonText}>
+              {showInfo ? 'Hide Info' : 'Info About Virtual Numbers'}
+            </Text>
+            <Ionicons 
+              name={showInfo ? "chevron-up" : "chevron-down"} 
+              size={18} 
+              color="#4CAF50" 
+            />
+          </TouchableOpacity>
+
+          {showInfo && (
+            <Animated.View 
+              style={[
+                styles.infoCard,
+                {
+                  opacity: infoOpacity,
+                  transform: [
+                    {
+                      translateY: infoAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-20, 0],
+                      }),
+                    },
+                    {
+                      scale: infoAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.95, 1],
+                      }),
+                    }
+                  ],
+                }
+              ]}
+            >
+              <View style={styles.infoHeader}>
+                <Ionicons name="information-circle" size={20} color="#4CAF50" />
+                <Text style={styles.infoTitle}>About Virtual Numbers</Text>
+              </View>
+              <View style={styles.infoContent}>
+                <View style={styles.infoItem}>
+                  <Ionicons name="time-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                  <Text style={styles.infoText}>Numbers take up to 24 hours to activate</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                  <Text style={styles.infoText}>Temporary number linked to your real number</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Ionicons name="lock-closed-outline" size={16} color="#6c757d" style={styles.infoIcon} />
+                  <Text style={styles.infoText}>Receive SMS/calls without exposing your personal number</Text>
+                </View>
+              </View>
+            </Animated.View>
+          )}
+        </View>
 
         {/* Show message when there are no virtual numbers */}
         {totalCount === 0 && (
@@ -1048,7 +1051,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 10,
     shadowColor: "#007bff",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -1142,7 +1144,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 24,
+    marginVertical: 10,
     paddingHorizontal: 16,
   },
   dividerLine: {
