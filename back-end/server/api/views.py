@@ -25,8 +25,13 @@ import random
 from django.utils import timezone
 
 
-#! ALGO TO GENERATE RANDOM NUMBER
+#! ==================== NUMBER GENERATION LOGIC ====================
+
+# Starting digit for virtual numbers (6-9)
 st = random.randint(6, 9)
+
+# Graph representing valid digit connections for number generation
+# Each key represents a digit, and its value array shows which digits can follow it
 G = {
     0: [4, 6],
     1: [6, 8],
@@ -40,71 +45,69 @@ G = {
     9: [2, 4],
 }
 
+# Define number lengths for different country codes
 GEO_CODE_LENGTHS = {
-    'IN': 10,
-    'US': 12,
-    'UK': 9,
-    'DE': 11,
-    'CA': 13
+    'IN': 10,  # India: 10 digits
+    'US': 12,  # United States: 12 digits
+    'UK': 9,   # United Kingdom: 9 digits
+    'DE': 11,  # Germany: 11 digits
+    'CA': 13   # Canada: 13 digits
 }
 
+# Valid categories for virtual numbers
 CATEGORY_CHOICES = ['social-media', 'e-commerce', 'personal']
 
 def generate_random_number(n=10, start=st, G=G):
+    """
+    Generate a random virtual number using graph-based constraints.
+    Each digit is chosen based on valid connections defined in graph G.
+    """
     number = str(start)
     current = start
     for _ in range(n - 1):
         if not G[current]:
-            current = random.randint(0, 9)
+            current = random.randint(0, 9)  # If no valid connections, pick random digit
         else:
-            current = random.choice(G[current])
+            current = random.choice(G[current])  # Pick from valid connections
         number += str(current)
     return number
 
-#! CREATE VIRTUAL NUMBER
+
+#! ==================== VIRTUAL NUMBER MANAGEMENT ====================
+
 @api_view(["POST", "GET"])
 @permission_classes([AllowAny])
 def create_virtual_number(request):
-    """
-    Create a new virtual number.
-    
-    Validates the request data and checks:
-    - Physical number exists and has capacity
-    - Category cooldown period
-    - Unique category constraint per physical number
-    
-    Args:
-        request: HTTP request containing physical_number_id and category
-        
-    Returns:
-        Response: Created virtual number details or error message
-    """
+    """Create a new virtual number with cooldown checks"""
     print("Incoming request data:", request.data)
 
+    # Validate input parameters
     geo_code = request.data.get("geo_code", "").strip().upper()
     category = request.data.get("category", "").strip().lower()
 
+    # Basic validation checks
     if not geo_code or not category:
         return Response(status=status.HTTP_400_BAD_REQUEST)
-
     if geo_code not in GEO_CODE_LENGTHS:
         return Response(status=status.HTTP_400_BAD_REQUEST)
-
     if category not in CATEGORY_CHOICES:
         return Response(status=status.HTTP_400_BAD_REQUEST)
     
+    # Check category cooldown
     allowed, error_message = CategoryCooldown.check_creation_cooldown(category, cooldown_minutes=5)
     if not allowed:
         return Response({"error": error_message}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
+    # Generate number based on country code
     n = GEO_CODE_LENGTHS[geo_code]
     number = generate_random_number(n=n)
 
+    # Get available physical number
     physical_number = PhysicalNumber.objects.filter(is_active=True).first()
-
     if not physical_number or not physical_number.has_capacity_for_virtual_number():
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    # Create virtual number
     try:
         VirtualNumber.objects.create(
             numbers=number,
@@ -116,68 +119,59 @@ def create_virtual_number(request):
         print("Error creating virtual number:", e)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
-#! GET PHYSICAL NUMBERS
+
+#! ==================== NUMBER RETRIEVAL ENDPOINTS ====================
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_physical_numbers(request):
-    """
-    Retrieve all active physical numbers.
-    
-    Returns:
-        Response: List of physical numbers with their details
-    """
+    """Get all active physical numbers"""
     physical_numbers = PhysicalNumber.objects.filter(is_active=True)
     serializer = PhysicalNumberSerializer(physical_numbers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-#! GET VIRTUAL NUMBERS
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def view_virtual_numbers(request):
-    """
-    Retrieve all active virtual numbers.
-    
-    Returns:
-        Response: List of virtual numbers with their associated physical numbers
-    """
-    category=request.query_params.get('category')
+    """Get virtual numbers, optionally filtered by category"""
+    category = request.query_params.get('category')
     if category:
-        virtual_numbers=VirtualNumber.objects.filter(category=category)
+        virtual_numbers = VirtualNumber.objects.filter(category=category)
     else:
         virtual_numbers = VirtualNumber.objects.all()
     serializer = VirtualNumberSerializer(virtual_numbers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-#! DELETE VIRTUAL NUMBER
+#! ==================== NUMBER DELETION AND RECOVERY ====================
+
 @api_view(['DELETE'])
 @permission_classes([AllowAny])
 def delete_virtual_number(request, virtual_number_id):
     """
-    Delete a virtual number and make it recoverable.
-    
-    The number is moved to RecoverableVirtualNumber and its messages to
-    RecoverableMessage for potential recovery within the cooldown period.
-    
-    Args:
-        request: HTTP request
-        id: ID of the virtual number to delete
-        
-    Returns:
-        Response: Success message or error details
+    Delete a virtual number and prepare it for potential recovery.
+    Steps:
+    1. Create deletion record
+    2. Store recoverable copy with messages
+    3. Mark category for cooldown
+    4. Delete original number
     """
     try:
-        virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
-        category=virtual_number.category
+        virtual_number = VirtualNumber.objects.get(id=virtual_number_id)
+        category = virtual_number.category
 
+        # Create deletion record
         DeletedVirtualNumber.objects.create(
             number=virtual_number.numbers,
             category=virtual_number.category,
             physical_number=virtual_number.physical_number
         )
+        
+        # Clear previous recoverable data
         RecoverableVirtualNumber.objects.all().delete()
 
-        recoverable_virtual_number=RecoverableVirtualNumber.objects.create(
+        # Store recoverable copy
+        recoverable_virtual_number = RecoverableVirtualNumber.objects.create(
             number=virtual_number.numbers,
             category=virtual_number.category,
             physical_number=virtual_number.physical_number,
@@ -186,7 +180,8 @@ def delete_virtual_number(request, virtual_number_id):
             is_call_active=virtual_number.is_call_active
         )
 
-        messages=Message.objects.filter(virtual_number=virtual_number)
+        # Store associated messages
+        messages = Message.objects.filter(virtual_number=virtual_number)
         for message in messages:
             RecoverableMessage.objects.create(
                 recoverable_virtual_number=recoverable_virtual_number,
@@ -198,8 +193,10 @@ def delete_virtual_number(request, virtual_number_id):
                 created_at=message.created_at
             )
         
+        # Start deletion cooldown
         CategoryCooldown.mark_deletion(category)
 
+        # Delete the original number
         virtual_number.delete()
         return Response({"message": "Virtual number deleted successfully"}, status=status.HTTP_200_OK)
     
@@ -209,21 +206,20 @@ def delete_virtual_number(request, virtual_number_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
 
-#! RESTORE LAST DELETED VIRTUAL NUMBER
 @api_view(['POST',"GET"])
 @permission_classes([AllowAny])
 def restore_last_deleted_virtual_number(request):
     """
     Restore the most recently deleted virtual number.
-    
-    Checks for recovery cooldown and restores the virtual number along with
-    its associated messages if the cooldown period has passed.
-    
-    Returns:
-        Response: Details of restored number and message count, or error message
+    Steps:
+    1. Check recovery cooldown for all categories
+    2. Get last deleted number
+    3. Restore number and its messages
+    4. Start recovery cooldown
+    5. Clean up recoverable data
     """
     try:
-        # Check if any category is in recovery cooldown
+        # Check cooldown status for all categories
         categories = ['social-media', 'e-commerce', 'personal']
         for category in categories:
             try:
@@ -239,18 +235,20 @@ def restore_last_deleted_virtual_number(request):
             except CategoryCooldown.DoesNotExist:
                 continue
 
+        # Get last deleted number
         last_deleted_virtual_number = RecoverableVirtualNumber.objects.first()
-
         if not last_deleted_virtual_number:
             return Response({"message": "No recently deleted virtual number found to restore"}, 
                            status=status.HTTP_404_NOT_FOUND)
         
+        # Check if number already exists
         if VirtualNumber.objects.filter(numbers=last_deleted_virtual_number.number).exists():
             return Response({"message": "Cannot restore - virtual number already exists"}, 
                            status=status.HTTP_400_BAD_REQUEST)
         
         category = last_deleted_virtual_number.category
         
+        # Restore the virtual number
         recovered_virtual_number = VirtualNumber.objects.create(
             numbers=last_deleted_virtual_number.number,
             category=last_deleted_virtual_number.category,
@@ -260,6 +258,7 @@ def restore_last_deleted_virtual_number(request):
             is_call_active=last_deleted_virtual_number.is_call_active
         )
 
+        # Restore associated messages
         recoverable_messages = RecoverableMessage.objects.filter(recoverable_virtual_number=last_deleted_virtual_number)
         message_count = recoverable_messages.count()
         
@@ -274,7 +273,7 @@ def restore_last_deleted_virtual_number(request):
                 created_at=rec_message.created_at
             )
         
-        # Mark the category for recovery cooldown
+        # Start recovery cooldown
         CategoryCooldown.mark_recovery(category)
         
         # Clean up recoverable data
@@ -293,130 +292,69 @@ def restore_last_deleted_virtual_number(request):
         )
 
 
-#! DEACTIVATE AND ACTIVATEVIRTUAL NUMBER
+#! ==================== NUMBER ACTIVATION CONTROLS ====================
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def deactivate_virtual_number(request, virtual_number_id):
+    """Toggle virtual number activation status"""
     try:
         virtual_number = VirtualNumber.objects.get(id=virtual_number_id)
-        if virtual_number.is_active:
-            virtual_number.is_active = False
-            virtual_number.save()
-            return Response({'message': 'Successfully deactivated'}, status=status.HTTP_200_OK)
-        else:
-            virtual_number.is_active = True
-            virtual_number.save()
-            return Response({'message': 'Successfully activated'}, status=status.HTTP_200_OK)
-    
+        virtual_number.is_active = not virtual_number.is_active
+        virtual_number.save()
+        status_msg = 'deactivated' if not virtual_number.is_active else 'activated'
+        return Response({'message': f'Successfully {status_msg}'}, status=status.HTTP_200_OK)
     except VirtualNumber.DoesNotExist:
         return Response({'message': 'Virtual number not found'}, status=status.HTTP_404_NOT_FOUND)
-    
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-#! DEACTIVATE AND ACTIVATE VIRTUAL MESSAGE
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def deactivate_virtual_number_message(request, virtual_number_id):
+    """Toggle message reception for virtual number"""
     try:
         virtual_number = VirtualNumber.objects.get(id=virtual_number_id)
-        if virtual_number.is_message_active:
-            virtual_number.is_message_active = False
-            virtual_number.save()
-            return Response({'message': 'Successfully Messages deactivated'}, status=status.HTTP_200_OK)
-        else:
-            virtual_number.is_message_active = True
-            virtual_number.save()
-            return Response({'message': 'Successfully Messages activated'}, status=status.HTTP_200_OK)
-    
+        virtual_number.is_message_active = not virtual_number.is_message_active
+        virtual_number.save()
+        status_msg = 'deactivated' if not virtual_number.is_message_active else 'activated'
+        return Response({'message': f'Successfully Messages {status_msg}'}, status=status.HTTP_200_OK)
     except VirtualNumber.DoesNotExist:
         return Response({'message': 'Virtual number not found'}, status=status.HTTP_404_NOT_FOUND)
-    
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-#! DEACTIVATE AND ACTIVATE VIRTUAL CALL
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def deactivate_virtual_number_call(request, virtual_number_id):
+    """Toggle call reception for virtual number"""
     try:
-        virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
-        if virtual_number.is_call_active:
-            virtual_number.is_call_active=False
-            virtual_number.save()
-            return Response({'message': 'Successfully Call deactivated'}, status=status.HTTP_200_OK)
-        
-        else:
-            virtual_number.is_call_active=True
-            virtual_number.save()
-            return Response({'message': 'Successfully Call activated'}, status=status.HTTP_200_OK)
-    
+        virtual_number = VirtualNumber.objects.get(id=virtual_number_id)
+        virtual_number.is_call_active = not virtual_number.is_call_active
+        virtual_number.save()
+        status_msg = 'deactivated' if not virtual_number.is_call_active else 'activated'
+        return Response({'message': f'Successfully Call {status_msg}'}, status=status.HTTP_200_OK)
     except VirtualNumber.DoesNotExist:
         return Response({'message': 'Virtual number not found'}, status=status.HTTP_404_NOT_FOUND)
-        
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+#! ==================== MESSAGE HANDLING ====================
 
-#! GET TOTAL NOTIFICATION COUNT        
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_total_notifcation_count(request):
+    """Get count of unread messages"""
     try:
-        total_notification=Message.objects.filter(is_read=False).count()
-        if total_notification==0:
-            return Response({'message':'No new notifications'},status=status.HTTP_200_OK)
-        
-        return Response({'total_notification':total_notification},status=status.HTTP_200_OK)
-    
+        total_notification = Message.objects.filter(is_read=False).count()
+        if total_notification == 0:
+            return Response({'message':'No new notifications'}, status=status.HTTP_200_OK)
+        return Response({'total_notification':total_notification}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error':str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-
-#! GETING MESSAGE FROM EXTERNAL WEBSITES (USE CASES)
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def receive_message(request):
-    virtual_number=request.GET.get('virtual_number')
-    sender_name = request.GET.get('sender_name')
-    msg = request.GET.get('message')
-
-    if not virtual_number or not msg or not sender_name:
-        return Response({"message": "Both message and sender name are required"}, 
-                        status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        virtual_number_obj=VirtualNumber.objects.get(numbers=virtual_number)
-    except VirtualNumber.DoesNotExist:
-        return Response({"message": "Virtual number not found"}, 
-                        status=status.HTTP_404_NOT_FOUND)
-
-    if not virtual_number_obj.is_message_active:
-        return Response({"message": "Virtual number is not active"}, 
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    if not virtual_number_obj.is_active:
-        return Response({"message": "Virtual number is not active"}, 
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    result = forward_message(virtual_number,sender_name, msg)
-    
-    if result.get('success'):
-        return Response({
-            "message": f"Message from {sender_name} received and processed successfully",
-            "details": result
-        }, status=status.HTTP_200_OK)
-    else:
-        return Response({
-            "message": "Failed to process Message",
-            "details": result
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
+# Map of sender names to their categories
 SENDER_CATEGORIES = {
     # E-commerce senders
     'shopeasy':'e-commerce',
@@ -437,28 +375,77 @@ SENDER_CATEGORIES = {
     'friend': 'personal',
 }
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def receive_message(request):
+    """
+    Receive and process incoming messages.
+    Validates:
+    1. Required parameters
+    2. Virtual number exists
+    3. Number is active
+    4. Message reception is enabled
+    """
+    virtual_number = request.GET.get('virtual_number')
+    sender_name = request.GET.get('sender_name')
+    msg = request.GET.get('message')
 
-
-#! SAVING IT IN DATABASE 
-def forward_message(virtual_number,sender_name,msg):
+    # Validate required parameters
+    if not virtual_number or not msg or not sender_name:
+        return Response({"message": "Both message and sender name are required"}, 
+                        status=status.HTTP_400_BAD_REQUEST)
+    
     try:
         virtual_number_obj = VirtualNumber.objects.get(numbers=virtual_number)
         
-        category = SENDER_CATEGORIES.get(sender_name.lower())
+        # Check if message reception is enabled
+        if not virtual_number_obj.is_message_active:
+            return Response({"message": "Virtual number is not active for messages"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if number is active
+        if not virtual_number_obj.is_active:
+            return Response({"message": "Virtual number is not active"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+
+        # Process and store message
+        result = forward_message(virtual_number, sender_name, msg)
         
+        if result.get('success'):
+            return Response({
+                "message": f"Message from {sender_name} received and processed successfully",
+                "details": result
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "message": "Failed to process Message",
+                "details": result
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except VirtualNumber.DoesNotExist:
+        return Response({"message": "Virtual number not found"}, 
+                        status=status.HTTP_404_NOT_FOUND)
+
+def forward_message(virtual_number, sender_name, msg):
+    """Process and store incoming message with category validation"""
+    try:
+        virtual_number_obj = VirtualNumber.objects.get(numbers=virtual_number)
+        
+        # Get sender's category
+        category = SENDER_CATEGORIES.get(sender_name.lower())
         if not category:
             return {
                 'success': False, 
                 'message': f"Unknown sender: {sender_name}"
             }
             
-       
+        # Validate category match
         if virtual_number_obj.category != category:
             return {
                 'success': False, 
                 'message': f"Category mismatch: Sender category '{category}' doesn't match virtual number category '{virtual_number_obj.category}'"
             }
         
+        # Store message
         message = Message.objects.create(
             virtual_number=virtual_number_obj,
             sender=sender_name,
@@ -492,116 +479,105 @@ def forward_message(virtual_number,sender_name,msg):
             'success': False,
             'message': f"Error processing message: {str(e)}"
         }
-    
 
-#! SENDING THE MESSAGE TO FRONT-END  
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def forward_message_to_front_end(request):
-     category=request.GET.get('category')
-     if not category:
-          return Response({"error": "Category parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-     virtual_number=VirtualNumber.objects.filter(category=category)
+    """Retrieve messages for a specific category"""
+    category = request.GET.get('category')
+    if not category:
+        return Response({"error": "Category parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    virtual_number = VirtualNumber.objects.filter(category=category)
+    if not virtual_number.exists():
+        return Response({"error": f"No active virtual numbers found for category: {category}"}, 
+                        status=status.HTTP_404_NOT_FOUND)
+    
+    message = Message.objects.filter(virtual_number__in=virtual_number).order_by('-received_at')
+    if not message:
+        return Response({"message": f"No messages found for category: {category}"}, 
+                        status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = MessageSerializer(message, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
-     if not virtual_number.exists():
-          return Response({"error": f"No active virtual numbers found for category: {category}"}, 
-                          status=status.HTTP_404_NOT_FOUND)
-     
-     message=Message.objects.filter(virtual_number__in=virtual_number).order_by('-received_at')
-
-     if not message:
-          return Response({"message": f"No messages found for category: {category}"}, 
-                          status=status.HTTP_404_NOT_FOUND)
-     
-     serializer=MessageSerializer(message,many=True)
-     return Response(serializer.data,status=status.HTTP_200_OK)
-
-
-#! SEEN MESAGE 
 @api_view(['GET'])
 @permission_classes([AllowAny])         
-def read_message(request,message_id):
+def read_message(request, message_id):
+    """Mark a message as read"""
     try:
-        message=Message.objects.get(id=message_id)
-        if message.is_read == False:
-            message.is_read=True
+        message = Message.objects.get(id=message_id)
+        if not message.is_read:
+            message.is_read = True
             message.save()
             return Response({'message':"Message read"}, status=status.HTTP_200_OK)
         return Response({'message':"Message already read"}, status=status.HTTP_200_OK)
-    
     except Message.DoesNotExist:
-        return Response({'message':"Message not found"},status=status.HTTP_404_NOT_FOUND)
-    
-    
+        return Response({'message':"Message not found"}, status=status.HTTP_404_NOT_FOUND)
 
-#! DELETE MESSAGE     
 @api_view(['DELETE'])
 @permission_classes([AllowAny])
-def delete_message(request,message_id):
+def delete_message(request, message_id):
+    """Delete a specific message"""
     try:
-        message=Message.objects.get(id=message_id)
+        message = Message.objects.get(id=message_id)
         message.delete()
-        return Response({'message':'Message deleted successfully'},status=status.HTTP_200_OK)
-    
+        return Response({'message':'Message deleted successfully'}, status=status.HTTP_200_OK)
     except Message.DoesNotExist:
-        return Response({'message':'Message not found'},status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message':'Message not found'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-#! GET PHYSICAL NUMBER BY VIRTUAL NUMBER
+#! ==================== NUMBER LOOKUP ENDPOINTS ====================
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_physical_number_by_virtual_number(request, virtual_number):
+    """Find physical number associated with a virtual number"""
     try:
-        #? in active virtual numbers
+        # Check active virtual numbers
         try:
             virtual_number_obj = VirtualNumber.objects.get(numbers=virtual_number)
             physical_number = virtual_number_obj.physical_number
             serializer = PhysicalNumberSerializer(physical_number)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except VirtualNumber.DoesNotExist:
-
-            #? in deleted virtual numbers 
+            # Check deleted virtual numbers
             try:
                 deleted_virtual_number = DeletedVirtualNumber.objects.get(number=virtual_number)
                 physical_number = deleted_virtual_number.physical_number
                 serializer = PhysicalNumberSerializer(physical_number)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except DeletedVirtualNumber.DoesNotExist:
-
                 return Response({"error": "Virtual number not found in active or deleted records"}, 
                                status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
 
-
-#! GET VIRTUAL NUMBER BY PHYSICAL NUMBER
 @api_view(["GET"])    
 @permission_classes([AllowAny])    
 def get_virtual_number_by_physical_number(request, physical_number):
+    """Find all active virtual numbers associated with a physical number"""
     try:
-        physical_number=PhysicalNumber.objects.filter(is_active=True).get(id=physical_number)
-        virtual_numbers=VirtualNumber.objects.filter(physical_number=physical_number,is_active=True)
-        serializer=VirtualNumberSerializer(virtual_numbers,many=True)
-        return Response(serializer.data,status=status.HTTP_200_OK)
-    
+        physical_number = PhysicalNumber.objects.filter(is_active=True).get(id=physical_number)
+        virtual_numbers = VirtualNumber.objects.filter(physical_number=physical_number, is_active=True)
+        serializer = VirtualNumberSerializer(virtual_numbers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     except PhysicalNumber.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
-    
 
 
-# Add a view to check cooldown status
+#! ==================== COOLDOWN MANAGEMENT ====================
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def check_category_cooldowns(request):
     """
-    Check cooldown status for all categories.
-    
-    Returns cooldown information for both deletion and recovery operations
-    across all categories.
-    
-    Returns:
-        Response: Dictionary of category cooldown statuses and remaining times
+    Check and return cooldown status for all categories.
+    Returns for each category:
+    - Current cooldown status
+    - Last deletion time
+    - Last recovery time
+    - Remaining cooldown time
     """
     try:
         categories = ['social-media', 'e-commerce', 'personal']
