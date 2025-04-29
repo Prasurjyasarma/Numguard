@@ -1,3 +1,21 @@
+/**
+ * Virtual Number Dashboard
+ * 
+ * This component serves as the main dashboard for managing virtual numbers in the application.
+ * It provides functionality for:
+ * - Viewing all virtual numbers categorized by type (e-commerce, social media, personal)
+ * - Creating new virtual numbers with category-specific cooldown periods
+ * - Recovering recently deleted numbers with recovery cooldown periods
+ * - Displaying real-time status and cooldown information
+ * - Managing and monitoring virtual number activities
+ * 
+ * The dashboard implements a sophisticated cooldown system that prevents:
+ * 1. Creating multiple numbers in the same category within the cooldown period
+ * 2. Recovering deleted numbers before the recovery cooldown period expires
+ * 
+ * @component
+ */
+
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -29,6 +47,19 @@ interface VirtualNumber {
   updated_at: string;
 }
 
+interface CategoryCooldownStatus {
+  in_cooldown: boolean;
+  last_deleted: string;
+  last_recovered: string;
+  status: string;
+  recovery_cooldown?: boolean;
+  recovery_remaining_time?: string;
+}
+
+interface CategoryCooldowns {
+  [key: string]: CategoryCooldownStatus;
+}
+
 const VirtualNumberDashboard: React.FC = () => {
   const router = useRouter();
   const [virtualNumbers, setVirtualNumbers] = useState<VirtualNumber[]>([]);
@@ -58,6 +89,7 @@ const VirtualNumberDashboard: React.FC = () => {
   const [locationDetected, setLocationDetected] = useState<boolean>(false);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [infoAnim] = useState(new Animated.Value(0));
+  const [categoryCooldowns, setCategoryCooldowns] = useState<CategoryCooldowns>({});
 
   const fetchVirtualNumbers = async () => {
     try {
@@ -71,13 +103,36 @@ const VirtualNumberDashboard: React.FC = () => {
     }
   };
 
+  const fetchCategoryCooldowns = async () => {
+    try {
+      const response = await api.get("/check-category-cooldowns/");
+      if (response.data && typeof response.data === 'object') {
+        setCategoryCooldowns(response.data);
+      } else {
+        console.error("Invalid cooldown data format:", response.data);
+        setCategoryCooldowns({});
+      }
+    } catch (error) {
+      console.error("Error fetching category cooldowns:", error);
+      setCategoryCooldowns({});
+    }
+  };
+
   useEffect(() => {
     fetchVirtualNumbers();
+    fetchCategoryCooldowns();
+    
     const refreshInterval = setInterval(() => {
       fetchVirtualNumbers();
     }, 2000);
+
+    const cooldownInterval = setInterval(() => {
+      fetchCategoryCooldowns();
+    }, 10000); // Check cooldowns every 10 seconds
+
     return () => {
       clearInterval(refreshInterval);
+      clearInterval(cooldownInterval);
     };
   }, []);
 
@@ -134,6 +189,35 @@ const VirtualNumberDashboard: React.FC = () => {
     Alert.alert("Copied", `${number} copied to clipboard`);
   };
 
+  const isCategoryInCooldown = (category: string): boolean => {
+    if (!categoryCooldowns || typeof categoryCooldowns !== 'object') return false;
+    return categoryCooldowns[category]?.in_cooldown || false;
+  };
+
+  const getCategoryCooldownTime = (category: string): string | null => {
+    if (!categoryCooldowns || typeof categoryCooldowns !== 'object') return null;
+    const cooldown = categoryCooldowns[category];
+    if (cooldown?.in_cooldown) {
+      // Extract the remaining time from the status message
+      const match = cooldown.status.match(/(\d+)m (\d+)s remaining/);
+      if (match) {
+        return `${match[1]}m ${match[2]}s`;
+      }
+    }
+    return null;
+  };
+
+  const isRecoveryInCooldown = (): boolean => {
+    if (!categoryCooldowns || typeof categoryCooldowns !== 'object') return false;
+    return Object.values(categoryCooldowns).some(cooldown => cooldown.recovery_cooldown);
+  };
+
+  const getRecoveryCooldownTime = (): string | null => {
+    if (!categoryCooldowns || typeof categoryCooldowns !== 'object') return null;
+    const cooldown = Object.values(categoryCooldowns).find(c => c.recovery_cooldown);
+    return cooldown?.recovery_remaining_time || null;
+  };
+
   const handleRequestPress = () => {
     setLocationModalVisible(true);
     setLocationDetected(false);
@@ -150,6 +234,15 @@ const VirtualNumberDashboard: React.FC = () => {
   };
 
   const handleRecoverPress = async () => {
+    if (isRecoveryInCooldown()) {
+      const remainingTime = getRecoveryCooldownTime();
+      Alert.alert(
+        "Recovery in Cooldown",
+        `Please wait ${remainingTime} before recovering another number.`
+      );
+      return;
+    }
+
     setRecoveryModalVisible(true);
     setIsRecovering(true);
     
@@ -164,12 +257,12 @@ const VirtualNumberDashboard: React.FC = () => {
           messagesRestored: response.data.messages_restored
         });
         
-        // Refresh virtual numbers after successful recovery
+        // Refresh virtual numbers and cooldowns after successful recovery
         setTimeout(() => {
           fetchVirtualNumbers();
+          fetchCategoryCooldowns();
         }, 1500);
       } catch (error: any) {
-        // Don't log the error to console to avoid emulator issues
         setRecoveryStatus({
           success: false,
           message: error.response?.data?.message || "Failed to recover virtual number. Please try again later."
@@ -177,12 +270,17 @@ const VirtualNumberDashboard: React.FC = () => {
       } finally {
         setIsRecovering(false);
       }
-    }, 1500); // 1.5 second delay to show loading animation
+    }, 1500);
   };
 
   const handleCategorySubmit = async () => {
     if (!selectedCategory) {
       Alert.alert("Error", "Please select a category");
+      return;
+    }
+
+    if (isCategoryInCooldown(selectedCategory)) {
+      Alert.alert("Error", "This category is currently in cooldown. Please try again later.");
       return;
     }
 
@@ -237,11 +335,22 @@ const VirtualNumberDashboard: React.FC = () => {
   const renderNumberContent = (category: string, numbers: VirtualNumber[]) => {
     const hasNumber = numbers.length > 0;
     const number = hasNumber ? numbers[0] : null;
+    const inCooldown = isCategoryInCooldown(category);
+    const cooldownTime = getCategoryCooldownTime(category);
     
     return (
       <>
         <View style={styles.tagContainer}>
           <Text style={styles.summaryTag}>{formatCategoryName(category).toUpperCase()}</Text>
+          {inCooldown && cooldownTime && (
+            <View style={styles.cooldownContainer}>
+              <Ionicons name="time-outline" size={12} color="#FF9800" />
+              <Text style={styles.cooldownText}>
+                <Text style={styles.cooldownTimeValue}>{cooldownTime}</Text>
+                <Text style={styles.cooldownTimeLabel}> remaining</Text>
+              </Text>
+            </View>
+          )}
         </View>
         {hasNumber ? (
           <View style={styles.numberRow}>
@@ -358,10 +467,22 @@ const VirtualNumberDashboard: React.FC = () => {
         {/* Recover Button - Always shown regardless of count */}
         <View style={styles.requestButtonContainer}>
           <TouchableOpacity
-            style={styles.recoverButton}
+            style={[
+              styles.recoverButton,
+              isRecoveryInCooldown() && styles.disabledButton
+            ]}
             onPress={handleRecoverPress}
+            disabled={isRecoveryInCooldown()}
           >
             <Text style={styles.recoverText}>Recover Last Deleted Number</Text>
+            {isRecoveryInCooldown() && (
+              <View style={styles.recoveryCooldownContainer}>
+                <Ionicons name="time-outline" size={12} color="#fff" />
+                <Text style={styles.recoveryCooldownText}>
+                  {getRecoveryCooldownTime()} remaining
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -618,27 +739,36 @@ const VirtualNumberDashboard: React.FC = () => {
 
                 <View style={styles.categoryButtonsContainer}>
                   {availableCategories.length > 0 ? (
-                    availableCategories.map((category) => (
-                      <TouchableOpacity
-                        key={category}
-                        style={[
-                          styles.categoryButton,
-                          selectedCategory === category &&
-                            styles.selectedCategoryButton,
-                        ]}
-                        onPress={() => setSelectedCategory(category)}
-                      >
-                        <Text
+                    availableCategories.map((category) => {
+                      const inCooldown = isCategoryInCooldown(category);
+                      const cooldownTime = getCategoryCooldownTime(category);
+                      
+                      return (
+                        <TouchableOpacity
+                          key={category}
                           style={[
-                            styles.categoryButtonText,
-                            selectedCategory === category &&
-                              styles.selectedCategoryButtonText,
+                            styles.categoryButton,
+                            selectedCategory === category && styles.selectedCategoryButton,
+                            inCooldown && styles.cooldownCategoryButton,
                           ]}
+                          onPress={() => !inCooldown && setSelectedCategory(category)}
+                          disabled={inCooldown}
                         >
-                          {formatCategoryName(category)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
+                          <Text
+                            style={[
+                              styles.categoryButtonText,
+                              selectedCategory === category && styles.selectedCategoryButtonText,
+                              inCooldown && styles.cooldownCategoryButtonText,
+                            ]}
+                          >
+                            {formatCategoryName(category)}
+                            {inCooldown && cooldownTime && (
+                              <Text style={styles.cooldownTimeText}> ({cooldownTime})</Text>
+                            )}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
                   ) : (
                     <View style={styles.noCategoriesContainer}>
                       <Ionicons name="warning" size={24} color="#FFA500" />
@@ -654,10 +784,10 @@ const VirtualNumberDashboard: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.modalButton,
-                      !selectedCategory && styles.disabledButton,
+                      (!selectedCategory || isCategoryInCooldown(selectedCategory)) && styles.disabledButton,
                     ]}
                     onPress={handleCategorySubmit}
-                    disabled={!selectedCategory}
+                    disabled={!selectedCategory || isCategoryInCooldown(selectedCategory)}
                   >
                     <Text style={styles.requestText}>create</Text>
                   </TouchableOpacity>
@@ -904,6 +1034,9 @@ const VirtualNumberDashboard: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  /**
+   * Container styles
+   */
   safeArea: {
     flex: 1, 
     backgroundColor: "#f8f9fa",
@@ -911,6 +1044,10 @@ const styles = StyleSheet.create({
   androidSafeArea: {
     paddingTop: Platform.OS === 'android' ? 35 : 0
   },
+
+  /**
+   * Layout styles
+   */
   scrollContainer: {
     flex: 1,
   },
@@ -966,6 +1103,8 @@ const styles = StyleSheet.create({
   },
   tagContainer: {
     marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryTag: {
     fontSize: 12,
@@ -973,6 +1112,7 @@ const styles = StyleSheet.create({
     color: "#1a936f",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   noNumberText: {
     fontSize: 14,
@@ -1414,6 +1554,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#4CAF50",
     textAlign: "center",
+  },
+  cooldownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+    alignSelf: 'center',
+  },
+  cooldownText: {
+    fontSize: 12,
+    color: '#FF9800',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  cooldownTimeValue: {
+    fontWeight: '700',
+    color: '#F57C00',
+  },
+  cooldownTimeLabel: {
+    color: '#FF9800',
+    fontWeight: '400',
+  },
+  cooldownCategoryButton: {
+    backgroundColor: '#FFF3E0',
+    borderColor: '#FF9800',
+    opacity: 0.7,
+    borderWidth: 1,
+  },
+  cooldownCategoryButtonText: {
+    color: '#FF9800',
+    fontWeight: '500',
+  },
+  cooldownTimeText: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontStyle: 'italic',
+    fontWeight: '500',
+  },
+  recoveryCooldownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  recoveryCooldownText: {
+    fontSize: 12,
+    color: '#fff',
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 

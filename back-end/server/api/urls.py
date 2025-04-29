@@ -13,7 +13,8 @@ from .views import (
     deactivate_virtual_number,
     deactivate_virtual_number_message,
     restore_last_deleted_virtual_number,
-    deactivate_virtual_number_call
+    deactivate_virtual_number_call,
+    check_category_cooldowns
 )
 
 urlpatterns = [
@@ -26,6 +27,8 @@ urlpatterns = [
     path('deactivate-virtual-number-message/<int:virtual_number_id>/',deactivate_virtual_number_message,name='deactivate_virtual_number_message'),
     path('deactivate-virtual-number-call/<int:virtual_number_id>/',deactivate_virtual_number_call,name='deactivate_virtual_number_call'),
     path('restore-last-deleted-virtual-number/',restore_last_deleted_virtual_number,name='restore_last_deleted_virtual_number'),
+    path('check-category-cooldowns/',check_category_cooldowns,name='check_category_cooldowns'),
+
 
     #! Message Handling
     path('forward-message/', forward_message_to_front_end, name='forward_message_to_front_end'),

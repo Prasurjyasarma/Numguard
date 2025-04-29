@@ -1,8 +1,24 @@
-from django.shortcuts import render
+"""
+Virtual Number Management System Views
+
+This module implements the API endpoints for managing virtual phone numbers.
+It provides functionality for creating, deleting, recovering, and managing
+virtual numbers across different categories, with built-in cooldown mechanisms
+to prevent abuse.
+
+Key Features:
+- Virtual number CRUD operations
+- Category-based management
+- Cooldown system integration
+- Message handling
+- Number recovery system
+"""
+
+from django.shortcuts import render, get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
-from .models import VirtualNumber, Message, PhysicalNumber, DeletedVirtualNumber,RecoverableMessage,RecoverableVirtualNumber
+from .models import VirtualNumber, Message, PhysicalNumber, DeletedVirtualNumber,RecoverableMessage,RecoverableVirtualNumber,CategoryCooldown
 from .serializer import VirtualNumberSerializer, MessageSerializer, PhysicalNumberSerializer, DeletedVirtualNumberSerializer
 from rest_framework.permissions import AllowAny
 import random
@@ -49,6 +65,20 @@ def generate_random_number(n=10, start=st, G=G):
 @api_view(["POST", "GET"])
 @permission_classes([AllowAny])
 def create_virtual_number(request):
+    """
+    Create a new virtual number.
+    
+    Validates the request data and checks:
+    - Physical number exists and has capacity
+    - Category cooldown period
+    - Unique category constraint per physical number
+    
+    Args:
+        request: HTTP request containing physical_number_id and category
+        
+    Returns:
+        Response: Created virtual number details or error message
+    """
     print("Incoming request data:", request.data)
 
     geo_code = request.data.get("geo_code", "").strip().upper()
@@ -62,6 +92,10 @@ def create_virtual_number(request):
 
     if category not in CATEGORY_CHOICES:
         return Response(status=status.HTTP_400_BAD_REQUEST)
+    
+    allowed, error_message = CategoryCooldown.check_creation_cooldown(category, cooldown_minutes=5)
+    if not allowed:
+        return Response({"error": error_message}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
     n = GEO_CODE_LENGTHS[geo_code]
     number = generate_random_number(n=n)
@@ -86,6 +120,12 @@ def create_virtual_number(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_physical_numbers(request):
+    """
+    Retrieve all active physical numbers.
+    
+    Returns:
+        Response: List of physical numbers with their details
+    """
     physical_numbers = PhysicalNumber.objects.filter(is_active=True)
     serializer = PhysicalNumberSerializer(physical_numbers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -94,6 +134,12 @@ def get_physical_numbers(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def view_virtual_numbers(request):
+    """
+    Retrieve all active virtual numbers.
+    
+    Returns:
+        Response: List of virtual numbers with their associated physical numbers
+    """
     category=request.query_params.get('category')
     if category:
         virtual_numbers=VirtualNumber.objects.filter(category=category)
@@ -107,8 +153,23 @@ def view_virtual_numbers(request):
 @api_view(['DELETE'])
 @permission_classes([AllowAny])
 def delete_virtual_number(request, virtual_number_id):
+    """
+    Delete a virtual number and make it recoverable.
+    
+    The number is moved to RecoverableVirtualNumber and its messages to
+    RecoverableMessage for potential recovery within the cooldown period.
+    
+    Args:
+        request: HTTP request
+        id: ID of the virtual number to delete
+        
+    Returns:
+        Response: Success message or error details
+    """
     try:
         virtual_number=VirtualNumber.objects.get(id=virtual_number_id)
+        category=virtual_number.category
+
         DeletedVirtualNumber.objects.create(
             number=virtual_number.numbers,
             category=virtual_number.category,
@@ -136,6 +197,8 @@ def delete_virtual_number(request, virtual_number_id):
                 received_at=message.received_at,
                 created_at=message.created_at
             )
+        
+        CategoryCooldown.mark_deletion(category)
 
         virtual_number.delete()
         return Response({"message": "Virtual number deleted successfully"}, status=status.HTTP_200_OK)
@@ -150,8 +213,33 @@ def delete_virtual_number(request, virtual_number_id):
 @api_view(['POST',"GET"])
 @permission_classes([AllowAny])
 def restore_last_deleted_virtual_number(request):
+    """
+    Restore the most recently deleted virtual number.
+    
+    Checks for recovery cooldown and restores the virtual number along with
+    its associated messages if the cooldown period has passed.
+    
+    Returns:
+        Response: Details of restored number and message count, or error message
+    """
     try:
-        last_deleted_virtual_number=RecoverableVirtualNumber.objects.first()
+        # Check if any category is in recovery cooldown
+        categories = ['social-media', 'e-commerce', 'personal']
+        for category in categories:
+            try:
+                cooldown = CategoryCooldown.objects.get(category=category)
+                in_recovery_cooldown, remaining_time = cooldown.is_in_recovery_cooldown()
+                if in_recovery_cooldown:
+                    remaining_minutes = int(remaining_time.total_seconds() // 60)
+                    remaining_seconds = int(remaining_time.total_seconds() % 60)
+                    return Response(
+                        {"message": f"Cannot recover number yet. Please wait {remaining_minutes}m {remaining_seconds}s."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except CategoryCooldown.DoesNotExist:
+                continue
+
+        last_deleted_virtual_number = RecoverableVirtualNumber.objects.first()
 
         if not last_deleted_virtual_number:
             return Response({"message": "No recently deleted virtual number found to restore"}, 
@@ -161,7 +249,9 @@ def restore_last_deleted_virtual_number(request):
             return Response({"message": "Cannot restore - virtual number already exists"}, 
                            status=status.HTTP_400_BAD_REQUEST)
         
-        recovered_virtual_number=VirtualNumber.objects.create(
+        category = last_deleted_virtual_number.category
+        
+        recovered_virtual_number = VirtualNumber.objects.create(
             numbers=last_deleted_virtual_number.number,
             category=last_deleted_virtual_number.category,
             physical_number=last_deleted_virtual_number.physical_number,
@@ -169,6 +259,7 @@ def restore_last_deleted_virtual_number(request):
             is_message_active=last_deleted_virtual_number.is_message_active,
             is_call_active=last_deleted_virtual_number.is_call_active
         )
+
         recoverable_messages = RecoverableMessage.objects.filter(recoverable_virtual_number=last_deleted_virtual_number)
         message_count = recoverable_messages.count()
         
@@ -183,16 +274,23 @@ def restore_last_deleted_virtual_number(request):
                 created_at=rec_message.created_at
             )
         
+        # Mark the category for recovery cooldown
+        CategoryCooldown.mark_recovery(category)
+        
+        # Clean up recoverable data
         RecoverableVirtualNumber.objects.all().delete()
         
         return Response({
-            "message": "Virtual number restored successfully", 
+            "message": "Virtual number restored successfully",
             "restored_number": last_deleted_virtual_number.number,
             "messages_restored": message_count
         }, status=status.HTTP_200_OK)
 
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"message": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 #! DEACTIVATE AND ACTIVATEVIRTUAL NUMBER
@@ -489,3 +587,60 @@ def get_virtual_number_by_physical_number(request, physical_number):
     
     except PhysicalNumber.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
+    
+
+
+# Add a view to check cooldown status
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_category_cooldowns(request):
+    """
+    Check cooldown status for all categories.
+    
+    Returns cooldown information for both deletion and recovery operations
+    across all categories.
+    
+    Returns:
+        Response: Dictionary of category cooldown statuses and remaining times
+    """
+    try:
+        categories = ['social-media', 'e-commerce', 'personal']
+        cooldowns = {}
+        
+        for category in categories:
+            try:
+                cooldown = CategoryCooldown.objects.get(category=category)
+                in_cooldown, remaining_time = cooldown.is_in_cooldown()
+                in_recovery_cooldown, recovery_remaining_time = cooldown.is_in_recovery_cooldown()
+                
+                if in_cooldown:
+                    remaining_minutes = int(remaining_time.total_seconds() // 60)
+                    remaining_seconds = int(remaining_time.total_seconds() % 60)
+                    status = f"In cooldown - {remaining_minutes}m {remaining_seconds}s remaining"
+                else:
+                    status = "Available for creation"
+                
+                cooldowns[category] = {
+                    "in_cooldown": in_cooldown,
+                    "last_deleted": cooldown.last_deleted_at.strftime("%Y-%m-%d %H:%M:%S") if cooldown.last_deleted_at else "Never",
+                    "last_recovered": cooldown.last_recovered_at.strftime("%Y-%m-%d %H:%M:%S") if cooldown.last_recovered_at else "Never",
+                    "status": status,
+                    "recovery_cooldown": in_recovery_cooldown,
+                    "recovery_remaining_time": f"{int(recovery_remaining_time.total_seconds() // 60)}m {int(recovery_remaining_time.total_seconds() % 60)}s" if in_recovery_cooldown else None
+                }
+            except CategoryCooldown.DoesNotExist:
+                cooldowns[category] = {
+                    "in_cooldown": False,
+                    "last_deleted": "Never",
+                    "last_recovered": "Never",
+                    "status": "Available for creation",
+                    "recovery_cooldown": False,
+                    "recovery_remaining_time": None
+                }
+        
+        return Response(cooldowns)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
