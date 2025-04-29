@@ -9,6 +9,7 @@ Numguard is a virtual number management system that allows users to:
 - Organize numbers by categories (e-commerce, social media, personal)
 - Control message and call activation states
 - Monitor notifications and message status
+- Implement category-specific cooldown periods
 
 2. Project Structure
 -------------------
@@ -83,6 +84,33 @@ API Endpoints:
 - Real-time status updates
 - Interactive toggles for activation states
 - Notification system for user feedback
+
+3.4 Cooldown System
+- Independent cooldown tracking for each category
+- Separate timers for deletion and recovery operations
+- 5-minute cooldown period for number creation/deletion
+- 5-minute cooldown period for number recovery
+- Real-time cooldown status display
+- Prevents abuse through timed restrictions
+
+Example Cooldown Scenarios:
+1. Deletion Cooldown:
+   - Triggered when a number is deleted
+   - Prevents creating/deleting numbers in same category for 5 minutes
+   - Other categories remain unaffected
+   - Timer starts from most recent deletion
+
+2. Recovery Cooldown:
+   - Triggered when a number is recovered
+   - Prevents recovering any numbers for 5 minutes
+   - Independent from deletion cooldown
+   - Timer starts from most recent recovery
+
+3. Multiple Category Management:
+   - Each category (e-commerce, social-media, personal) has independent cooldowns
+   - Deleting an e-commerce number doesn't affect social-media operations
+   - Recovery cooldown applies independently to each category
+   - Real-time countdown display for remaining cooldown time
 
 4. State Management
 ------------------
