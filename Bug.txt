@@ -1,1 +1,156 @@
-1. Recently deleted button is getting removed alogn with Request for new number button. (FIXED)
+[NUMGUARD - Investor Pitch Script]
+Duration: 8 minutes
+
+[Opening Hook - 30 seconds]
+"In today's digital landscape, your phone number is more than just a contact - it's a gateway to your identity. Every time you share your number online, you're potentially exposing yourself to privacy breaches, identity theft, and financial fraud. Let me show you how we're revolutionizing digital privacy protection."
+
+[Problem Statement - 1 minute]
+The Digital Privacy Crisis:
+• 86% of people globally worry about data privacy
+• 85% received scam attempts in 2022
+• Two-thirds of merchants face eCommerce fraud
+• $6 trillion annual cost of cybercrime globally
+• Root cause: Physical numbers are exposed across multiple platforms:
+  - E-commerce websites
+  - Social media platforms
+  - Service providers
+  - Online marketplaces
+  - Dating apps
+  - Job portals
+
+[Solution - 1 minute]
+"Introducing NumGuard - The Future of Digital Privacy"
+Core Features:
+• Purpose-specific virtual numbers
+• Real-time message and call management
+• Instant number generation
+• Secure message storage
+• One-click deactivation
+• Category-based organization
+• Smart cool-down periods between number generation
+• Permanent number tracking for security
+
+Key Benefits:
+• Complete privacy protection
+• Reduced fraud risk
+• Enhanced security
+• Full control over number exposure
+• Seamless integration with existing services
+• Smart number management with cool-down periods
+• Ability to track and recover deleted numbers
+
+[Live Demo - 3 minutes]
+"Let me demonstrate how NumGuard transforms digital privacy"
+
+1. Platform Overview:
+   • Clean, intuitive dashboard
+   • Category-based organization
+   • Real-time notifications
+   • Secure message center
+
+2. Number Generation Process:
+   • Select category (e-commerce, social media, personal)
+   • Instant number generation
+   • Secure number storage
+   • One-click copy functionality
+   • QR code sharing option
+   • Cool-down period indicator
+   • Number tracking status
+
+3. Advanced Features:
+   • Message/call toggle controls
+   • Real-time message monitoring
+   • Secure message storage
+   • Instant deactivation
+   • Number deletion with confirmation
+   • Message history management
+   • Number recovery options
+   • Cool-down timer display
+
+4. Multi-category Management:
+   • Category-specific numbers
+   • Isolated message centers
+   • Individual control settings
+   • Cross-platform compatibility
+   • Per-category cool-down tracking
+   • Number history access
+
+[Business Model & Market - 1.5 minutes]
+Market Opportunity:
+• Global privacy tech market: $XX billion by 2025
+• Growing demand for privacy solutions
+• Increasing regulatory requirements
+• Rising consumer awareness
+
+Target Markets:
+• Individual consumers
+• Small businesses
+• Enterprise clients
+• E-commerce platforms
+• Service providers
+
+Revenue Streams:
+• Freemium model
+  - Basic: Limited numbers, standard features
+  - Premium: Unlimited numbers, advanced features
+• Enterprise solutions
+  - Custom integrations
+  - API access
+  - White-label options
+• Partnership programs
+  - Platform integrations
+  - Revenue sharing
+  - Co-marketing opportunities
+
+[Closing - 1 minute]
+"NumGuard represents the future of digital privacy. We're not just creating another app - we're building essential privacy infrastructure for the digital age. Our solution addresses a critical need in today's interconnected world, where privacy is increasingly becoming a luxury.
+
+What sets us apart:
+• Smart number management with cool-down periods
+• Permanent number tracking capability
+• Instant number generation
+• Category-based organization
+• Enterprise-grade security
+
+Investment Opportunity:
+• Proven technology
+• Growing market demand
+• Scalable infrastructure
+• Strong revenue potential
+• Experienced team
+
+We're seeking [investment amount] to:
+• Scale our infrastructure
+• Enhance security features
+• Expand market reach
+• Develop enterprise solutions
+• Strengthen partnerships
+
+Join us in making privacy accessible to everyone."
+
+[Demo Tips]
+• Pre-load the application
+• Ensure stable internet connection
+• Prepare backup screen recording
+• Practice demo flow thoroughly
+• Focus on user benefits
+• Keep technical details simple
+• Emphasize security features
+• Highlight ease of use
+• Show cool-down period feature
+• Demonstrate number tracking
+
+[Key Points to Emphasize]
+• Immediate market need
+• Working prototype
+• Clear value proposition
+• Scalable business model
+• Privacy-first approach
+• Market timing
+• Competitive advantage
+• Growth potential
+• Smart number management
+• Permanent tracking capability
+
+
+

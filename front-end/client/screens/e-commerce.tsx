@@ -435,25 +435,6 @@ const Ecommerce: React.FC = () => {
 
         {virtualNumberId && (
           <View style={styles.buttonsContainer}>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={handleDeleteConfirmation}
-            >
-              <Text style={styles.buttonText}>delete number</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.deactivateButton, 
-                isVirtualNumberActive ? { backgroundColor: "#FFA500" } : { backgroundColor: "#4CAF50" }
-              ]}
-              onPress={handleDeactivateConfirmation}
-            >
-              <Text style={styles.buttonText}>
-                {isVirtualNumberActive ? "deactivate" : "activate"}
-              </Text>
-            </TouchableOpacity>
-
             <View style={styles.togglesContainer}>
               <View style={styles.toggleItem}>
                 <Text style={[
@@ -484,6 +465,25 @@ const Ecommerce: React.FC = () => {
                 />
               </View>
             </View>
+
+            <TouchableOpacity
+              style={[
+                styles.deactivateButton, 
+                isVirtualNumberActive ? { backgroundColor: "#FFA500" } : { backgroundColor: "#4CAF50" }
+              ]}
+              onPress={handleDeactivateConfirmation}
+            >
+              <Text style={styles.buttonText}>
+                {isVirtualNumberActive ? "deactivate" : "activate"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteConfirmation}
+            >
+              <Text style={styles.buttonText}>delete number</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -825,6 +825,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+    marginBottom: 16,
   },
   toggleItem: {
     flexDirection: "row",
