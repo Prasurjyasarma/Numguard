@@ -1,0 +1,118 @@
+NUMGUARD - APPLICATION FLOW
+
+[USER INTERACTION]
+    │
+    ▼
+[Login/Authentication]
+    │
+    ▼
+[Home Dashboard]
+    │
+    ├── [Physical Number Display]
+    │   └── Shows masked number
+    │
+    ├── [Virtual Number Management]
+    │   ├── Create New Number
+    │   │   ├── Select Category
+    │   │   ├── Check Cooldown
+    │   │   └── Generate Number
+    │   │
+    │   ├── Manage Numbers
+    │   │   ├── Activate/Deactivate
+    │   │   ├── Toggle Messages
+    │   │   └── Toggle Calls
+    │   │
+    │   └── Delete/Recover
+    │       ├── Delete Number
+    │       └── Recover Number
+    │
+    └── [Message Center]
+        ├── View Messages
+        ├── Mark as Read
+        └── Delete Messages
+
+[BACKEND PROCESSING]
+    │
+    ▼
+[Number Generation]
+    │
+    ├── [Validation]
+    │   ├── Check Category
+    │   ├── Verify Cooldown
+    │   └── Validate Format
+    │
+    ├── [Number Creation]
+    │   ├── Generate Unique Number
+    │   ├── Link to Physical Number
+    │   └── Set Category
+    │
+    └── [Storage]
+        ├── Save to Database
+        └── Update Status
+
+[MESSAGE HANDLING]
+    │
+    ├── [Receive Message]
+    │   ├── Validate Sender
+    │   ├── Categorize Message
+    │   └── Store in Database
+    │
+    ├── [Message Processing]
+    │   ├── Link to Virtual Number
+    │   ├── Set Read Status
+    │   └── Update Notifications
+    │
+    └── [Message Delivery]
+        ├── Forward to Physical Number
+        └── Update UI
+
+[SECURITY FEATURES]
+    │
+    ├── [Cooldown System]
+    │   ├── Category-specific Timers
+    │   ├── 5-minute Intervals
+    │   └── Operation Tracking
+    │
+    ├── [Number Protection]
+    │   ├── Unique Constraints
+    │   ├── Category Limits
+    │   └── Recovery System
+    │
+    └── [Data Security]
+        ├── API Authentication
+        ├── Data Validation
+        └── Message Encryption
+
+[REAL-TIME UPDATES]
+    │
+    ├── [Frontend Polling]
+    │   ├── Number Status (2s)
+    │   ├── Message Updates (3s)
+    │   └── Cooldown Status (10s)
+    │
+    └── [State Management]
+        ├── Virtual Numbers
+        ├── Messages
+        └── Notifications
+
+TECHNICAL STACK:
+├── Frontend: React Native
+├── Backend: Django
+├── Database: SQL
+└── API: RESTful
+
+DATA MODELS:
+├── PhysicalNumber
+├── VirtualNumber
+├── Message
+├── CategoryCooldown
+└── RecoverableVirtualNumber
+
+API ENDPOINTS:
+├── /physical-numbers/
+├── /create-virtual-number/
+├── /virtual-numbers/
+├── /delete-virtual-number/
+├── /deactivate-virtual-number/
+├── /forward-message/
+└── /receive-message/

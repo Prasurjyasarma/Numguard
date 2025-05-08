@@ -1,0 +1,78 @@
+NUMGUARD - VIRTUAL NUMBER SYSTEM
+
+HOW IT WORKS:
+
+1. PHYSICAL NUMBER LINKING
+   - Each user has one physical number
+   - Physical number can link up to 3 virtual numbers
+   - Each virtual number must be in a different category
+
+2. CATEGORY SYSTEM
+   Three main categories:
+   ├── E-commerce
+   ├── Social Media
+   └── Personal
+
+3. VIRTUAL NUMBER CREATION
+   Steps:
+   1. Select category (e-commerce/social/personal)
+   2. System generates unique virtual number
+   3. Links to your physical number
+   4. 5-minute cooldown between creations in same category
+
+4. NUMBER MANAGEMENT
+   Features:
+   ├── Activate/Deactivate numbers
+   ├── Toggle message/call features
+   ├── Delete numbers (with recovery option)
+   └── View message history
+
+5. MESSAGE HANDLING
+   - Messages sent to virtual number
+   - Forwarded to your physical number
+   - Organized by category
+   - Real-time updates
+
+6. RECOVERY SYSTEM
+   - Deleted numbers can be recovered
+   - 5-minute recovery cooldown
+   - Preserves message history
+   - Maintains category settings
+
+EXAMPLE SCENARIO:
+
+1. User has physical number: 9876543210
+
+2. Creates virtual numbers:
+   E-commerce: 8765432109
+   Social Media: 7654321098
+   Personal: 6543210987
+
+3. Each number:
+   - Links to physical number
+   - Has its own message center
+   - Can be managed independently
+   - Has category-specific cooldown
+
+4. Message Flow:
+   Virtual Number → Physical Number → User
+
+5. Management Options:
+   - Activate/Deactivate
+   - Toggle messages/calls
+   - Delete with recovery
+   - View message history
+
+SECURITY FEATURES:
+├── Category-specific cooldowns
+├── Number recovery protection
+├── Message encryption
+├── Secure API endpoints
+└── Data validation
+
+USER BENEFITS:
+├── Organized number management
+├── Category separation
+├── Easy recovery
+├── Real-time updates
+└── Smart cooldown system 

@@ -1,0 +1,93 @@
+USER JOURNEY FLOW - VIRTUAL NUMBER MANAGEMENT
+
+[Main Page]
+    │
+    ▼
+[Click on Virtual Number Section]
+    │
+    ▼
+[Virtual Number Dashboard]
+    │
+    ▼
+[Generate New Number]
+    │
+    ├── Select Category: E-commerce
+    │
+    ├── Check Cooldown Period
+    │
+    └── Generate Number
+        │
+        ▼
+[Number Details View]
+    │
+    ├── [Number Information]
+    │   ├── Display Generated Number
+    │   └── Show Category (E-commerce)
+    │
+    ├── [Number Features]
+    │   ├── Activate/Deactivate Toggle
+    │   ├── Message Center
+    │   └── Call Settings
+    │
+    └── [Number Actions]
+        ├── Copy Number
+        └── Delete Number
+            │
+            ▼
+[E-commerce Platform]
+    │
+    ├── Paste Virtual Number
+    │
+    └── Complete Registration
+        │
+        ▼
+[Message Reception]
+    │
+    ├── Receive Verification Messages
+    │
+    ├── View Messages in App
+    │
+    └── Mark Messages as Read
+        │
+        ▼
+[Number Management]
+    │
+    ├── [Delete Number]
+    │   ├── Confirm Deletion
+    │   └── Move to Recoverable Numbers
+    │
+    └── [Recover Number]
+        ├── Access Recoverable Numbers
+        └── Restore Deleted Number
+
+NOTES:
+- All actions are protected by cooldown system
+- Messages are encrypted and securely stored
+- Number recovery is available for 30 days
+- Real-time updates for message reception
+- Automatic number masking for security 
+
+TECHNOLOGY STACK:
+
+Frontend:
+├── React Native (Mobile App)
+│   ├── React Navigation (Routing)
+│   ├── Redux (State Management)
+│   └── React Native Paper (UI Components)
+│
+├── Real-time Features
+│   ├── WebSocket (Message Updates)
+│   └── Socket.io (Real-time Communication)
+│
+└── UI/UX
+    ├── React Native Vector Icons
+    └── React Native Reanimated (Animations)
+
+Backend:
+├── Django (Python Web Framework)
+│   ├── Django REST Framework (API)
+│   └── Django Channels (WebSocket Support)
+│
+├── Database
+│   ├── SQLITE (Primary Database)
+
