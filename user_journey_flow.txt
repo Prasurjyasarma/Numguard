@@ -18,7 +18,7 @@ USER JOURNEY FLOW - VIRTUAL NUMBER MANAGEMENT
     └── Generate Number
         │
         ▼
-[Number Details View]
+[Number Details Views]
     │
     ├── [Number Information]
     │   ├── Display Generated Number
